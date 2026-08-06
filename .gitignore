@@ -1,0 +1,25 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+
+# Xcode
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+*.dSYM/
+
+# Coverage and profiling
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
