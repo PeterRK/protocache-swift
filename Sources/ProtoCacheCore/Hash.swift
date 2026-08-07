@@ -1,4 +1,4 @@
-public enum ProtoCacheHash {
+enum Hash {
     @inline(__always) static func rotate(_ value: UInt64, _ amount: UInt64) -> UInt64 {
         (value << amount) | (value >> (64 - amount))
     }
@@ -36,7 +36,7 @@ public enum ProtoCacheHash {
         return (a, b, c, d)
     }
 
-    public static func hash128(_ bytes: UnsafeRawBufferPointer, seed: UInt64 = 0) -> (UInt32, UInt32, UInt32, UInt32) {
+    static func hash128(_ bytes: UnsafeRawBufferPointer, seed: UInt64 = 0) -> (UInt32, UInt32, UInt32, UInt32) {
         let magic: UInt64 = 0xdead_beef_dead_beef
         var a = seed, b = seed, c = magic, d = magic
         var offset = 0
@@ -67,7 +67,7 @@ public enum ProtoCacheHash {
         return (UInt32(truncatingIfNeeded: a), UInt32(truncatingIfNeeded: a >> 32), UInt32(truncatingIfNeeded: b), UInt32(truncatingIfNeeded: b >> 32))
     }
 
-    public static func hash128(_ bytes: [UInt8], seed: UInt64 = 0) -> (UInt32, UInt32, UInt32, UInt32) {
+    static func hash128(_ bytes: [UInt8], seed: UInt64 = 0) -> (UInt32, UInt32, UInt32, UInt32) {
         bytes.withUnsafeBytes { hash128($0, seed: seed) }
     }
 

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import ProtoCacheCore
 
-private func fixtureBytes(_ name: String) throws -> ProtoCacheBytes? {
+private func fixtureBytes(_ name: String) throws -> Bytes? {
     let source = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -13,7 +13,7 @@ private func fixtureBytes(_ name: String) throws -> ProtoCacheBytes? {
     guard !data.isEmpty else { return .empty }
     let pointer = UnsafeMutableRawPointer.allocate(byteCount: data.count, alignment: 4)
     data.copyBytes(to: UnsafeMutableRawBufferPointer(start: pointer, count: data.count))
-    return ProtoCacheBytes(adopting: pointer, count: data.count)
+    return Bytes(adopting: pointer, count: data.count)
 }
 
 @Test func fixedGoldenFixtureReadsAllCompositeShapes() throws {
@@ -45,7 +45,7 @@ private func fixtureBytes(_ name: String) throws -> ProtoCacheBytes? {
     guard let raw = try fixtureBytes("test.pc"),
           let compressed = try fixtureBytes("test.pc.compressed") else { return }
     #expect(compressed.count == 574)
-    let decoded = try ProtoCacheCompression.decompress(compressed)
+    let decoded = try Compression.decompress(compressed)
     #expect(decoded.count == raw.count)
     decoded.withView(Test_MainView.self) { view in
         #expect(view.i32 == -999)

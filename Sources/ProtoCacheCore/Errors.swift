@@ -30,7 +30,7 @@ extension ProtoCacheError: CustomStringConvertible {
     }
 }
 
-public struct ProtoCacheDecompressionLimits: Sendable, Hashable {
+public struct DecompressionLimits: Sendable, Hashable {
     public var maximumOutputBytes: Int
 
     public init(maximumOutputBytes: Int = 256 * 1024 * 1024) {
@@ -38,5 +38,5 @@ public struct ProtoCacheDecompressionLimits: Sendable, Hashable {
         self.maximumOutputBytes = maximumOutputBytes
     }
 
-    public static let `default` = ProtoCacheDecompressionLimits()
+    public static let `default` = DecompressionLimits()
 }

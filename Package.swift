@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 import PackageDescription
 
 let lifetimeSettings: [SwiftSetting] = [
@@ -59,17 +59,6 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "SwiftProtobufPluginLibrary", package: "swift-protobuf"),
             ],
-            swiftSettings: lifetimeSettings
-        ),
-        .executableTarget(
-            name: "ProtoCacheBenchmarks",
-            dependencies: [
-                "ProtoCacheCore",
-                "ProtoCache",
-                .product(name: "SwiftProtobuf", package: "swift-protobuf"),
-            ],
-            path: "Benchmarks/ProtoCacheBenchmarks",
-            resources: [.copy("Fixtures")],
             swiftSettings: lifetimeSettings
         ),
     ],

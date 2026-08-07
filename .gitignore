@@ -2,6 +2,8 @@
 .build/
 .swiftpm/
 Packages/
+Package.resolved
+**/Package.resolved
 
 # Xcode
 DerivedData/
@@ -23,3 +25,7 @@ DerivedData/
 *.swp
 *~
 .DS_Store
+
+# Local cross-language reference checkouts
+/c++
+/rust

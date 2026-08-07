@@ -6,79 +6,152 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: swift-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  linux:
-    name: Linux Swift 6
+  linux-minimum:
+    name: Linux Swift 6.3 compatibility
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Show minimum supported toolchain
+        run: docker run --rm swift:6.3 swift --version
+      - name: Test minimum supported toolchain
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:6.3 swift test
+      - name: Build release products with minimum supported toolchain
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:6.3 swift build -c release
+
+  linux:
+    name: Linux build, test, generator, consumer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        run: docker run --rm swift:latest swift --version
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Build and test in swift:latest
+      - name: Test debug build in swift:latest
         run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift test
+      - name: Build release products
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift build -c release
       - name: Linux Thread Sanitizer
         run: docker run --rm --privileged -v "$PWD:/workspace" -w /workspace swift:latest bash -lc 'setarch x86_64 -R swift test --sanitize=thread'
       - name: Build statically linked generator
         run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift build -c release --product protoc-gen-pcsw --static-swift-stdlib
-      - name: Invoke generator with host protoc
+      - name: Verify generated golden files
         run: |
-          mkdir -p /tmp/pcsw-generated
+          mkdir -p "${RUNNER_TEMP}/pcsw-generated"
           protoc --plugin=protoc-gen-pcsw=.build/x86_64-unknown-linux-gnu/release/protoc-gen-pcsw \
-            --pcsw_out=/tmp/pcsw-generated --pcsw_opt=extra \
+            --pcsw_out="${RUNNER_TEMP}/pcsw-generated" --pcsw_opt=extra \
             -ITests/Fixtures Tests/Fixtures/test.proto
-          test -s /tmp/pcsw-generated/test.pc.swift
-          test -s /tmp/pcsw-generated/test.pc-ex.swift
+          diff -u Tests/Fixtures/Generated/test.pc.swift \
+            "${RUNNER_TEMP}/pcsw-generated/test.pc.swift"
+          diff -u Tests/Fixtures/Generated/test.pc-ex.swift \
+            "${RUNNER_TEMP}/pcsw-generated/test.pc-ex.swift"
       - name: Verify protobuf-free Core compile graph
         run: |
           docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest \
             swiftc -swift-version 6 -enable-experimental-feature Lifetimes -package-name protocache_swift -parse-as-library \
-              Sources/ProtoCacheCore/Compression.swift Sources/ProtoCacheCore/Encoding.swift \
-              Sources/ProtoCacheCore/Errors.swift Sources/ProtoCacheCore/Generated.swift \
-              Sources/ProtoCacheCore/Hash.swift Sources/ProtoCacheCore/Mutable.swift \
-              Sources/ProtoCacheCore/PerfectHash.swift Sources/ProtoCacheCore/Scalar.swift \
-              Sources/ProtoCacheCore/Storage.swift Sources/ProtoCacheCore/Views.swift \
+              Sources/ProtoCacheCore/*.swift \
               -emit-module -module-name ProtoCacheCore -emit-module-path /tmp/ProtoCacheCore.swiftmodule
+      - name: Build and run external SwiftPM consumer
+        run: >-
+          docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest
+          swift run --package-path Tests/PackageConsumer -c release Consumer
 
   thread-sanitizer:
     name: macOS Thread Sanitizer
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: swift --version
       - run: swift test --sanitize=thread
 
   macos:
-    name: macOS build, test, generator
+    name: macOS build, test, generator, consumer
     runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
       - name: Install protoc
         run: brew install protobuf
-      - run: swift test
-      - run: swift build -c release --product protoc-gen-pcsw
-      - name: Invoke native generator
+      - name: Test debug build
+        run: swift test
+      - name: Test release build
+        run: swift test -c release
+      - name: Build native generator
+        run: swift build -c release --product protoc-gen-pcsw
+      - name: Verify generated golden files
         run: |
-          mkdir -p /tmp/pcsw-generated
+          mkdir -p "${RUNNER_TEMP}/pcsw-generated"
           protoc --plugin=protoc-gen-pcsw=.build/release/protoc-gen-pcsw \
-            --pcsw_out=/tmp/pcsw-generated --pcsw_opt=extra \
+            --pcsw_out="${RUNNER_TEMP}/pcsw-generated" --pcsw_opt=extra \
             -ITests/Fixtures Tests/Fixtures/test.proto
-          test -s /tmp/pcsw-generated/test.pc.swift
-          test -s /tmp/pcsw-generated/test.pc-ex.swift
+          diff -u Tests/Fixtures/Generated/test.pc.swift \
+            "${RUNNER_TEMP}/pcsw-generated/test.pc.swift"
+          diff -u Tests/Fixtures/Generated/test.pc-ex.swift \
+            "${RUNNER_TEMP}/pcsw-generated/test.pc-ex.swift"
+      - name: Build and run external SwiftPM consumer
+        run: swift run --package-path Tests/PackageConsumer -c release Consumer
 
   ios:
     name: iOS 16+ simulator smoke
     runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Select an available iPhone simulator
         run: |
-          DEVICE=$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*\(iPhone[^()]*\) (.*$/\1/p' | head -1 | sed 's/[[:space:]]*$//')
-          test -n "$DEVICE"
-          echo "IOS_DESTINATION=platform=iOS Simulator,name=$DEVICE" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          payload = json.loads(
+              subprocess.check_output(
+                  ["xcrun", "simctl", "list", "devices", "available", "--json"]
+              )
+          )
+          for devices in payload["devices"].values():
+              for device in devices:
+                  if device["name"].startswith("iPhone"):
+                      with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+                          output.write(
+                              f"IOS_DESTINATION=platform=iOS Simulator,id={device['udid']}\n"
+                          )
+                      raise SystemExit(0)
+          raise SystemExit("no available iPhone simulator")
+          PY
       - name: Compile both libraries for iOS Simulator
         run: |
-          xcodebuild -scheme protocache-core -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 build
-          xcodebuild -scheme protocache -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 build
+          xcodebuild -scheme protocache-core -configuration Release \
+            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -scheme protocache -configuration Release \
+            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            CODE_SIGNING_ALLOWED=NO build
       - name: Run readonly, EX and compression smoke tests
         run: |
-          xcodebuild test -scheme protocache-core -destination "$IOS_DESTINATION" -only-testing:ProtoCacheCoreTests
-          xcodebuild test -scheme protocache -destination "$IOS_DESTINATION" -only-testing:ProtoCacheTests
+          xcodebuild test -scheme protocache-core -destination "$IOS_DESTINATION" \
+            CODE_SIGNING_ALLOWED=NO -only-testing:ProtoCacheCoreTests
+          xcodebuild test -scheme protocache -destination "$IOS_DESTINATION" \
+            CODE_SIGNING_ALLOWED=NO -only-testing:ProtoCacheTests

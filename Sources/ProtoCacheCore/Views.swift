@@ -63,7 +63,7 @@ public struct FieldView: ~Escapable, Copyable, @unchecked Sendable {
         }
     }
 
-    public func scalar<T: ProtoCacheScalar>(_ type: T.Type = T.self) -> T? {
+    public func scalar<T: Scalar>(_ type: T.Type = T.self) -> T? {
         T._decodeProtoCache(from: self)
     }
 
@@ -74,12 +74,12 @@ public struct FieldView: ~Escapable, Copyable, @unchecked Sendable {
     @_lifetime(copy self)
     public func message() -> MessageView { MessageView(objectBytes) }
     @_lifetime(copy self)
-    public func array<Element: ProtoCacheDecodable>(of type: Element.Type = Element.self) -> ArrayView<Element>
+    public func array<Element: FieldDecodable>(of type: Element.Type = Element.self) -> ArrayView<Element>
     where Element: ~Escapable {
         ArrayView(objectBytes)
     }
     @_lifetime(copy self)
-    public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
+    public func map<Key: MapKey, Value: FieldDecodable>(key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
     where Key: ~Escapable, Value: ~Escapable {
         MapView(objectBytes)
     }
@@ -153,7 +153,7 @@ public struct MessageView: ~Escapable, Copyable, @unchecked Sendable {
     }
 
     @inlinable @inline(__always)
-    public func scalar<T: ProtoCacheScalar>(_ id: Int, as type: T.Type = T.self) -> T {
+    public func scalar<T: Scalar>(_ id: Int, as type: T.Type = T.self) -> T {
         guard let location = fieldLocation(id), location.width == T._protoCacheWordWidth else {
             return T._protoCacheDefault
         }
@@ -182,7 +182,7 @@ public struct MessageView: ~Escapable, Copyable, @unchecked Sendable {
 
     @_lifetime(copy self)
     @inlinable @inline(__always)
-    public func array<Element: ProtoCacheDecodable>(_ id: Int, of type: Element.Type = Element.self) -> ArrayView<Element>
+    public func array<Element: FieldDecodable>(_ id: Int, of type: Element.Type = Element.self) -> ArrayView<Element>
     where Element: ~Escapable {
         guard let bytes = objectBytes(id) else { return .empty }
         return ArrayView<Element>(bytes)
@@ -190,7 +190,7 @@ public struct MessageView: ~Escapable, Copyable, @unchecked Sendable {
 
     @_lifetime(copy self)
     @inlinable @inline(__always)
-    public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(_ id: Int, key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
+    public func map<Key: MapKey, Value: FieldDecodable>(_ id: Int, key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
     where Key: ~Escapable, Value: ~Escapable {
         guard let bytes = objectBytes(id) else { return .empty }
         return MapView<Key, Value>(bytes)
@@ -333,7 +333,7 @@ public struct StringView: ~Escapable, Copyable, @unchecked Sendable {
     }
 }
 
-extension StringView: ProtoCacheDecodable {
+extension StringView: FieldDecodable {
     @_lifetime(copy field)
     @inlinable @inline(__always)
     public static func _decodeProtoCache(from field: FieldView) -> StringView? { field.string() }
@@ -355,7 +355,7 @@ extension StringView: ProtoCacheDecodable {
         return StringView(bytes)
     }
 }
-extension StringView: ProtoCacheMapKey {
+extension StringView: MapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
         try withUnsafeUTF8(body)
     }
@@ -386,7 +386,7 @@ public struct BoolArrayView: ~Escapable, Copyable, @unchecked Sendable {
     }
 }
 
-public struct ArrayView<Element: ProtoCacheDecodable>: ~Escapable, Copyable, @unchecked Sendable
+public struct ArrayView<Element: FieldDecodable>: ~Escapable, Copyable, @unchecked Sendable
 where Element: ~Escapable {
     @usableFromInline let bytes: Span
     @usableFromInline let head: UInt32
@@ -459,7 +459,7 @@ where Element: ~Escapable {
     }
 }
 
-public struct MapView<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>: ~Escapable, Copyable, @unchecked Sendable
+public struct MapView<Key: MapKey, Value: FieldDecodable>: ~Escapable, Copyable, @unchecked Sendable
 where Key: ~Escapable, Value: ~Escapable {
     @usableFromInline let bytes: Span
     @usableFromInline let indexByteCount: Int
@@ -594,7 +594,7 @@ extension MapView where Key == StringView, Value: ~Escapable {
     }
 }
 
-extension BytesView: ProtoCacheDecodable {
+extension BytesView: FieldDecodable {
     @_lifetime(copy field)
     @inlinable @inline(__always)
     public static func _decodeProtoCache(from field: FieldView) -> BytesView? { field.bytes() }

@@ -37,7 +37,11 @@ private func sampleMessage() -> Test_Main {
     return message
 }
 
-private func values<Element: ProtoCacheDecodable>(_ view: borrowing ArrayView<Element>) -> [Element] {
+private func serializeMutable<Value: MutableValue>(_ value: Value) throws -> Bytes {
+    try value.serialized()
+}
+
+private func values<Element: FieldDecodable>(_ view: borrowing ArrayView<Element>) -> [Element] {
     var result: [Element] = []
     result.reserveCapacity(view.count)
     view.forEach { result.append($0) }
@@ -133,10 +137,103 @@ private func mapValue(_ view: borrowing MapView<StringView, Int32>, _ key: Strin
     }
 }
 
+@Test func randomizedPerfectHashSerializationRemainsValidAcrossInsertionOrders() throws {
+    let indexEntries: [(String, Int32)] = [
+        ("zero", 0), ("one", 1), ("minus", -1),
+        ("alpha", 11), ("omega", 22), ("middle", 33),
+    ]
+    let objectEntries: [(Int32, Test_Small)] = [
+        (0, Test_Small()), (-7, sampleSmall(9, "mapped")),
+        (4, sampleSmall(4, "four")), (19, sampleSmall(19, "nineteen")),
+    ]
+    let arrayEntries: [(String, [Float])] = [
+        ("first", [1, 2]), ("second", [3, 4]), ("third", [5, 6]),
+    ]
+
+    func order(_ count: Int, variant: Int) -> [Int] {
+        let rotated = (0..<count).map { ($0 + variant) % count }
+        return variant.isMultiple(of: 2) ? rotated : Array(rotated.reversed())
+    }
+
+    for variant in 0..<12 {
+        var message = sampleMessage()
+        message.index = [:]
+        for index in order(indexEntries.count, variant: variant) {
+            let entry = indexEntries[index]
+            message.index[entry.0] = entry.1
+        }
+        message.objects = [:]
+        for index in order(objectEntries.count, variant: variant) {
+            let entry = objectEntries[index]
+            message.objects[entry.0] = entry.1
+        }
+        var arrays = Test_ArrMap()
+        arrays.___ = [:]
+        for index in order(arrayEntries.count, variant: variant) {
+            let entry = arrayEntries[index]
+            var value = Test_ArrMap.Array()
+            value.___ = entry.1
+            arrays.___[entry.0] = value
+        }
+        message.arrays = arrays
+        message.vector = [arrays]
+
+        let serialized = try ProtoCache.serialize(message, as: Test_MainView.self)
+        serialized.withView(Test_MainView.self) { view in
+            for (key, value) in indexEntries {
+                #expect(mapValue(view.index, key) == value)
+            }
+            for (key, value) in objectEntries {
+                #expect(view.objects.value(for: key)?.i32 == value.i32)
+            }
+            for (key, expected) in arrayEntries {
+                guard let value = view.arrays.value(for: key) else {
+                    Issue.record("missing map value for \(key)")
+                    continue
+                }
+                #expect(values(value) == expected)
+            }
+        }
+    }
+}
+
 @Test func aliasSerializesAsContainerRoot() throws {
     var row = Test_Vec2D.Vec1D(); row.___ = [1, 2, 3]
     let bytes = try ProtoCache.serialize(row, as: Test_Vec2D_Vec1DView.self)
     #expect(bytes.withView(Test_Vec2D_Vec1DView.self) { values($0) } == [1, 2, 3])
+}
+
+@Test func generatedMutableContractCoversOrdinaryAndAliasRoots() throws {
+    let original = try ProtoCache.serialize(sampleMessage(), as: Test_MainView.self)
+    let mutable = Test_MainMutable(original)
+    #expect(try serializeMutable(mutable) == original)
+    let buffer = SerializationBuffer()
+    let reusedMatches = try mutable.withSerializedSpan(using: buffer) { serialized in
+        original.withBorrowedSpan { serialized.elementsEqual($0) }
+    }
+    #expect(reusedMatches)
+    let dynamicMatches = try ProtoCache.withSerializedSpan(
+        sampleMessage(),
+        using: buffer,
+        as: Test_MainView.self
+    ) { serialized in
+        let view = Test_MainView(serialized)
+        return serialized.count == original.count
+            && view.i32 == -12
+            && view.str.equalsUTF8("swift-零拷贝")
+            && view.objects.value(for: -7)?.i32 == 9
+    }
+    #expect(dynamicMatches)
+
+    let emptyAlias = try serializeMutable(Test_Vec2D_Vec1DMutable())
+    #expect(emptyAlias.withView(Test_Vec2D_Vec1DView.self) { $0.isEmpty })
+    let emptyMapAlias = try serializeMutable(Test_ArrMapMutable())
+    #expect(emptyMapAlias.withView(Test_ArrMapView.self) { $0.isEmpty })
+
+    var alias = Test_Vec2D_Vec1DMutable()
+    alias.value = [1, 2, 3]
+    let aliasBytes = try serializeMutable(alias)
+    #expect(aliasBytes.withView(Test_Vec2D_Vec1DView.self) { values($0) } == [1, 2, 3])
 }
 
 @Test func serializationRejectsMismatchedGeneratedLayout() {
@@ -188,14 +285,86 @@ private func mapValue(_ view: borrowing MapView<StringView, Int32>, _ key: Strin
     }
 }
 
-@Test func extraModeMessageBoxHasCopyOnWriteIsolation() throws {
+@Test func generatedDetectorTrimsNestedTailAndRejectsInvalidReferences() throws {
     let original = try ProtoCache.serialize(sampleMessage(), as: Test_MainView.self)
-    var left = Test_MainMutable(original); var right = left
+    let detectedWords = try original.withBorrowedSpan { bytes in
+        try Test_MainView._detectProtoCacheWords(bytes)
+    }
+    #expect(detectedWords * 4 == original.count)
+
+    var rootMutable = Test_MainMutable(original)
+    let nested = rootMutable.object
+    let nestedBytes = try nested.serialized()
+    let directBytes = try ProtoCache.serialize(sampleSmall(7, "child"), as: Test_SmallView.self)
+    #expect(nestedBytes.count == directBytes.count)
+    #expect(nestedBytes.count < original.count)
+    nestedBytes.withView(Test_SmallView.self) { view in
+        let stringMatches = view.str.equalsUTF8("child")
+        #expect(view.i32 == 7)
+        #expect(stringMatches)
+    }
+
+    var malformed = directBytes.withUnsafeBytes { Array($0) }
+    let stringFieldOffset = directBytes.withBorrowedSpan { bytes in
+        bytes.byteRange(of: MessageView(bytes).field(3)!.rawBytes).lowerBound
+    }
+    for index in 0..<4 { malformed[stringFieldOffset + index] = 0xff }
+    let malformedBytes = Bytes(copying: malformed)
+    #expect(throws: ProtoCacheError.self) {
+        try Test_SmallMutable(malformedBytes).serialized()
+    }
+    var partly = Test_SmallMutable(malformedBytes)
+    partly.i32 = 11
+    #expect(throws: ProtoCacheError.self) { try partly.serialized() }
+}
+
+@Test func extraModeMessageCopyIsIsolated() throws {
+    let original = try ProtoCache.serialize(sampleMessage(), as: Test_MainView.self)
+    var left = Test_MainMutable(original)
+    var materialized = left.object
+    #expect(materialized.i32 == 7)
+    var right = left
     left.object.i32 = 111; right.object.i32 = 222
     let leftBytes = try left.serialized()
     let rightBytes = try right.serialized()
     #expect(leftBytes.withView(Test_MainView.self) { $0.object.i32 } == 111)
     #expect(rightBytes.withView(Test_MainView.self) { $0.object.i32 } == 222)
+}
+
+@Test func extraModeMaterializedMapCopyIsIsolated() throws {
+    let original = try ProtoCache.serialize(sampleMessage(), as: Test_MainView.self)
+    var left = Test_MainMutable(original)
+    #expect(left.objects[-7]?.i32 == 9)
+    var right = left
+
+    left.objects[-7]!.i32 = 111
+    right.objects[-7]!.i32 = 222
+
+    let leftBytes = try left.serialized()
+    let rightBytes = try right.serialized()
+    #expect(leftBytes.withView(Test_MainView.self) { $0.objects.value(for: -7)?.i32 } == 111)
+    #expect(rightBytes.withView(Test_MainView.self) { $0.objects.value(for: -7)?.i32 } == 222)
+}
+
+@Test func mutableReadMaterializesAndDirectSetterSkipsSourceDecode() throws {
+    let original = try ProtoCache.serialize(sampleMessage(), as: Test_MainView.self)
+    var mutable = Test_MainMutable(original)
+    let first = mutable.str
+    let second = mutable.str
+    #expect(first == second)
+    let serialized = try mutable.serialized()
+    #expect(serialized.withView(Test_MainView.self) { $0.str.equalsUTF8("swift-零拷贝") })
+
+    let small = try ProtoCache.serialize(sampleSmall(7, "child"), as: Test_SmallView.self)
+    var malformed = small.withUnsafeBytes { Array($0) }
+    let stringFieldOffset = small.withBorrowedSpan { bytes in
+        bytes.byteRange(of: MessageView(bytes).field(3)!.rawBytes).lowerBound
+    }
+    for index in 0..<4 { malformed[stringFieldOffset + index] = 0xff }
+    var repaired = Test_SmallMutable(Bytes(copying: malformed))
+    repaired.str = "replacement"
+    let repairedBytes = try repaired.serialized()
+    #expect(repairedBytes.withView(Test_SmallView.self) { $0.str.equalsUTF8("replacement") })
 }
 
 @Test func readonlyStorageSupportsConcurrentBorrowedReads() async throws {

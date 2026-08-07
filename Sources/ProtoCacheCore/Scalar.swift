@@ -1,4 +1,4 @@
-public protocol ProtoCacheDecodable: ~Escapable, Sendable {
+public protocol FieldDecodable: ~Escapable, Sendable {
     @_lifetime(copy field)
     static func _decodeProtoCache(from field: FieldView) -> Self?
 
@@ -11,7 +11,7 @@ public protocol ProtoCacheDecodable: ~Escapable, Sendable {
     ) -> Self?
 }
 
-public protocol ProtoCacheScalar: ProtoCacheDecodable {
+public protocol Scalar: FieldDecodable {
     static var _protoCacheWordWidth: Int { get }
     static var _protoCacheDefault: Self { get }
     static func _decodeProtoCache(words: Span) -> Self?
@@ -19,7 +19,7 @@ public protocol ProtoCacheScalar: ProtoCacheDecodable {
     func _encodeProtoCacheWords() -> (UInt32, UInt32)
 }
 
-extension ProtoCacheScalar {
+extension Scalar {
     @inlinable @inline(__always)
     public static func _decodeProtoCache(
         fromRawWords baseAddress: UnsafeRawPointer,
@@ -42,49 +42,49 @@ extension ProtoCacheScalar {
 
 }
 
-extension Bool: ProtoCacheScalar {
+extension Bool: Scalar {
     public static let _protoCacheWordWidth = 1
     public static let _protoCacheDefault = false
     public static func _decodeProtoCache(words: Span) -> Bool? { words.loadUInt32(wordOffset: 0) != 0 }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> Bool { word0 != 0 }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (self ? 1 : 0, 0) }
 }
-extension Int32: ProtoCacheScalar {
+extension Int32: Scalar {
     public static let _protoCacheWordWidth = 1
     public static let _protoCacheDefault: Int32 = 0
     public static func _decodeProtoCache(words: Span) -> Int32? { Int32(bitPattern: words.loadUInt32(wordOffset: 0)) }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> Int32 { Int32(bitPattern: word0) }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (UInt32(bitPattern: self), 0) }
 }
-extension UInt32: ProtoCacheScalar {
+extension UInt32: Scalar {
     public static let _protoCacheWordWidth = 1
     public static let _protoCacheDefault: UInt32 = 0
     public static func _decodeProtoCache(words: Span) -> UInt32? { words.loadUInt32(wordOffset: 0) }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> UInt32 { word0 }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (self, 0) }
 }
-extension Int64: ProtoCacheScalar {
+extension Int64: Scalar {
     public static let _protoCacheWordWidth = 2
     public static let _protoCacheDefault: Int64 = 0
     public static func _decodeProtoCache(words: Span) -> Int64? { Int64(bitPattern: words.loadUInt64(wordOffset: 0)) }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> Int64 { Int64(bitPattern: UInt64(word0) | UInt64(word1) << 32) }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { let bits = UInt64(bitPattern: self); return (UInt32(truncatingIfNeeded: bits), UInt32(truncatingIfNeeded: bits >> 32)) }
 }
-extension UInt64: ProtoCacheScalar {
+extension UInt64: Scalar {
     public static let _protoCacheWordWidth = 2
     public static let _protoCacheDefault: UInt64 = 0
     public static func _decodeProtoCache(words: Span) -> UInt64? { words.loadUInt64(wordOffset: 0) }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> UInt64 { UInt64(word0) | UInt64(word1) << 32 }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (UInt32(truncatingIfNeeded: self), UInt32(truncatingIfNeeded: self >> 32)) }
 }
-extension Float: ProtoCacheScalar {
+extension Float: Scalar {
     public static let _protoCacheWordWidth = 1
     public static let _protoCacheDefault: Float = 0
     public static func _decodeProtoCache(words: Span) -> Float? { Float(bitPattern: words.loadUInt32(wordOffset: 0)) }
     @inlinable public static func _decodeProtoCache(word0: UInt32, word1: UInt32) -> Float { Float(bitPattern: word0) }
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (bitPattern, 0) }
 }
-extension Double: ProtoCacheScalar {
+extension Double: Scalar {
     public static let _protoCacheWordWidth = 2
     public static let _protoCacheDefault: Double = 0
     public static func _decodeProtoCache(words: Span) -> Double? { Double(bitPattern: words.loadUInt64(wordOffset: 0)) }
@@ -92,12 +92,12 @@ extension Double: ProtoCacheScalar {
     public func _encodeProtoCacheWords() -> (UInt32, UInt32) { (UInt32(truncatingIfNeeded: bitPattern), UInt32(truncatingIfNeeded: bitPattern >> 32)) }
 }
 
-public protocol ProtoCacheMapKey: ~Escapable, ProtoCacheDecodable {
+public protocol MapKey: ~Escapable, FieldDecodable {
     func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R
     func _protoCacheEquals(_ other: borrowing Self) -> Bool
 }
 
-extension ProtoCacheMapKey where Self: Equatable {
+extension MapKey where Self: Equatable {
     @inlinable @inline(__always)
     public func _protoCacheEquals(_ other: borrowing Self) -> Bool { self == other }
 }
@@ -107,15 +107,15 @@ private func withIntegerKeyBytes<T, R>(_ value: T, _ body: (UnsafeRawBufferPoint
     return try Swift.withUnsafeBytes(of: &copy) { try body($0) }
 }
 
-extension Int32: ProtoCacheMapKey {
+extension Int32: MapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R { try withIntegerKeyBytes(littleEndian, body) }
 }
-extension UInt32: ProtoCacheMapKey {
+extension UInt32: MapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R { try withIntegerKeyBytes(littleEndian, body) }
 }
-extension Int64: ProtoCacheMapKey {
+extension Int64: MapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R { try withIntegerKeyBytes(littleEndian, body) }
 }
-extension UInt64: ProtoCacheMapKey {
+extension UInt64: MapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R { try withIntegerKeyBytes(littleEndian, body) }
 }

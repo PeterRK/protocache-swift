@@ -11,7 +11,7 @@ private final class DeallocationCounter: @unchecked Sendable {
         let pointer = UnsafeMutableRawPointer.allocate(byteCount: 8, alignment: 4)
         pointer.storeBytes(of: UInt32(1 << 8).littleEndian, as: UInt32.self)
         pointer.storeBytes(of: UInt32(77).littleEndian, toByteOffset: 4, as: UInt32.self)
-        let bytes = ProtoCacheBytes(adopting: pointer, count: 8) { pointer, _ in
+        let bytes = Bytes(adopting: pointer, count: 8) { pointer, _ in
             counter.value += 1
             pointer.deallocate()
         }
@@ -44,7 +44,7 @@ private final class DeallocationCounter: @unchecked Sendable {
     pointer.storeBytes(of: UInt32(0x0000_6f6c).littleEndian, toByteOffset: 12, as: UInt32.self)
 
     do {
-        let bytes = ProtoCacheBytes(adopting: pointer, count: 16) { pointer, _ in
+        let bytes = Bytes(adopting: pointer, count: 16) { pointer, _ in
             counter.value += 1
             pointer.deallocate()
         }
@@ -62,16 +62,16 @@ private final class DeallocationCounter: @unchecked Sendable {
 
 @Test func compressionCallerBuffersReuseCapacity() throws {
     let expected = Array("aaaa".utf8) + [0, 0, 0, 0] + Array("bbbb".utf8)
-    let source = ProtoCacheBytes(copying: expected)
+    let source = Bytes(copying: expected)
     var packed = [UInt8](repeating: 0, count: 4096)
     let packedAddress = packed.withUnsafeBufferPointer { buffer in buffer.baseAddress }
-    ProtoCacheCompression.compress(source, into: &packed)
+    Compression.compress(source, into: &packed)
     #expect(packed.withUnsafeBufferPointer { buffer in buffer.baseAddress } == packedAddress)
 
-    let packedBytes = ProtoCacheBytes(copying: packed)
+    let packedBytes = Bytes(copying: packed)
     var raw = [UInt8](repeating: 0, count: 4096)
     let rawAddress = raw.withUnsafeBufferPointer { buffer in buffer.baseAddress }
-    try ProtoCacheCompression.decompress(packedBytes, into: &raw)
+    try Compression.decompress(packedBytes, into: &raw)
     #expect(raw.withUnsafeBufferPointer { buffer in buffer.baseAddress } == rawAddress)
     #expect(raw == expected)
 }
@@ -87,7 +87,7 @@ private final class DeallocationCounter: @unchecked Sendable {
     for bytes in malformed {
         var output: [UInt8] = [1, 2, 3]
         #expect(throws: (any Error).self) {
-            try ProtoCacheCompression.decompress(ProtoCacheBytes(copying: bytes), into: &output)
+            try Compression.decompress(Bytes(copying: bytes), into: &output)
         }
         #expect(output.isEmpty)
     }
@@ -95,10 +95,10 @@ private final class DeallocationCounter: @unchecked Sendable {
 
 @Test func perfectHashHandlesEmptySingletonAndDuplicateKeys() throws {
     let empty = try PerfectHash.build([])
-    let emptyBytes = ProtoCacheBytes(copying: empty.index)
+    let emptyBytes = Bytes(copying: empty.index)
     #expect(emptyBytes.withBorrowedSpan { PerfectHashView($0).count } == 0)
     let singleton = try PerfectHash.build([[1, 2, 3]])
-    let singletonBytes = ProtoCacheBytes(copying: singleton.index)
+    let singletonBytes = Bytes(copying: singleton.index)
     let position = singletonBytes.withBorrowedSpan { span in
         let view = PerfectHashView(span)
         return [UInt8](arrayLiteral: 1, 2, 3).withUnsafeBytes { view.locate($0) }
@@ -106,5 +106,13 @@ private final class DeallocationCounter: @unchecked Sendable {
     #expect(position == 0)
     #expect(throws: ProtoCacheError.duplicateMapKey) {
         try PerfectHash.build([[9], [9]])
+    }
+}
+
+@Test func mapExtentRejectsTruncatedPerfectHashIndex() {
+    var header = UInt32.max.littleEndian
+    let bytes = withUnsafeBytes(of: &header) { Bytes(copying: Array($0)) }
+    #expect(throws: ProtoCacheError.self) {
+        try bytes.withBorrowedSpan { try _ProtoCacheEncoding._detectMapBaseWords($0) }
     }
 }

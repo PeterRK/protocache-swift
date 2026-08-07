@@ -1,4 +1,4 @@
-@usableFromInline final class ProtoCacheStorage: @unchecked Sendable {
+@usableFromInline final class Storage: @unchecked Sendable {
     let baseAddress: UnsafeRawPointer
     let byteCount: Int
     private let mutableBaseAddress: UnsafeMutableRawPointer?
@@ -15,10 +15,10 @@
         if let mutableBaseAddress, let deallocator { deallocator(mutableBaseAddress, byteCount) }
     }
 
-    static let empty: ProtoCacheStorage = {
+    static let empty: Storage = {
         let pointer = UnsafeMutableRawPointer.allocate(byteCount: 4, alignment: 4)
         pointer.storeBytes(of: UInt32(0), as: UInt32.self)
-        return ProtoCacheStorage(baseAddress: UnsafeRawPointer(pointer), mutableBaseAddress: pointer, byteCount: 4, deallocator: { pointer, _ in pointer.deallocate() })
+        return Storage(baseAddress: UnsafeRawPointer(pointer), mutableBaseAddress: pointer, byteCount: 4, deallocator: { pointer, _ in pointer.deallocate() })
     }()
 }
 
@@ -117,15 +117,15 @@ public struct Span: ~Escapable, Copyable, @unchecked Sendable {
     }
 }
 
-public struct ProtoCacheBytes: @unchecked Sendable {
-    @usableFromInline let storage: ProtoCacheStorage
+public struct Bytes: @unchecked Sendable {
+    @usableFromInline let storage: Storage
     @usableFromInline let baseAddress: UnsafeRawPointer
     @usableFromInline let byteOffset: Int
     public let count: Int
 
-    public static let empty = ProtoCacheBytes(storage: .empty, byteOffset: 0, count: 4)
+    public static let empty = Bytes(storage: .empty, byteOffset: 0, count: 4)
 
-    @usableFromInline init(storage: ProtoCacheStorage, byteOffset: Int, count: Int) {
+    @usableFromInline init(storage: Storage, byteOffset: Int, count: Int) {
         self.storage = storage
         self.baseAddress = storage.baseAddress.advanced(by: byteOffset)
         self.byteOffset = byteOffset
@@ -134,7 +134,7 @@ public struct ProtoCacheBytes: @unchecked Sendable {
 
     public init(adopting baseAddress: UnsafeMutableRawPointer, count: Int, deallocator: @escaping @Sendable (UnsafeMutableRawPointer, Int) -> Void = { pointer, _ in pointer.deallocate() }) {
         precondition(count >= 0)
-        let storage = ProtoCacheStorage(baseAddress: UnsafeRawPointer(baseAddress), mutableBaseAddress: baseAddress, byteCount: count, deallocator: deallocator)
+        let storage = Storage(baseAddress: UnsafeRawPointer(baseAddress), mutableBaseAddress: baseAddress, byteCount: count, deallocator: deallocator)
         self.init(storage: storage, byteOffset: 0, count: count)
     }
 
@@ -146,7 +146,7 @@ public struct ProtoCacheBytes: @unchecked Sendable {
     }
 
     package init(copying bytes: [UInt8]) {
-        self = bytes.withUnsafeBytes { ProtoCacheBytes(copying: $0) }
+        self = bytes.withUnsafeBytes { Bytes(copying: $0) }
     }
 
     public var isEmpty: Bool { count == 0 }
@@ -155,6 +155,7 @@ public struct ProtoCacheBytes: @unchecked Sendable {
         try body(UnsafeRawBufferPointer(start: rawBaseAddress, count: count))
     }
 
+    @inlinable @inline(__always)
     public borrowing func withBorrowedSpan<R>(
         _ body: (borrowing Span) throws -> R
     ) rethrows -> R {
@@ -163,7 +164,7 @@ public struct ProtoCacheBytes: @unchecked Sendable {
         }
     }
 
-    public borrowing func ownedSlice(of span: borrowing Span) -> ProtoCacheBytes {
+    public borrowing func ownedSlice(of span: borrowing Span) -> Bytes {
         let range = byteRange(of: span)
         return slice(byteOffset: range.lowerBound, count: range.count)
     }
@@ -179,9 +180,9 @@ public struct ProtoCacheBytes: @unchecked Sendable {
         }
     }
 
-    @inlinable public func slice(byteOffset: Int, count: Int) -> ProtoCacheBytes {
+    @inlinable public func slice(byteOffset: Int, count: Int) -> Bytes {
         precondition(byteOffset >= 0 && count >= 0 && byteOffset + count <= self.count)
-        return ProtoCacheBytes(
+        return Bytes(
             storage: storage,
             byteOffset: self.byteOffset + byteOffset,
             count: count
@@ -211,14 +212,14 @@ public struct ProtoCacheBytes: @unchecked Sendable {
     }
 
     @inlinable @inline(__always)
-    func wordSlice(offset: Int, count: Int? = nil) -> ProtoCacheBytes {
+    func wordSlice(offset: Int, count: Int? = nil) -> Bytes {
         let byteOffset = offset &* 4
         let byteCount = count.map { $0 &* 4 } ?? (self.count - byteOffset)
         return slice(byteOffset: byteOffset, count: byteCount)
     }
 }
 
-extension ProtoCacheBytes: Equatable {
+extension Bytes: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         guard lhs.count == rhs.count else { return false }
         return lhs.withUnsafeBytes { left in rhs.withUnsafeBytes { right in left.elementsEqual(right) } }
