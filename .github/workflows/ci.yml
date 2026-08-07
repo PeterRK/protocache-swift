@@ -31,7 +31,7 @@ jobs:
       - name: Verify protobuf-free Core compile graph
         run: |
           docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest \
-            swiftc -swift-version 6 -package-name protocache_swift -parse-as-library \
+            swiftc -swift-version 6 -enable-experimental-feature Lifetimes -package-name protocache_swift -parse-as-library \
               Sources/ProtoCacheCore/Compression.swift Sources/ProtoCacheCore/Encoding.swift \
               Sources/ProtoCacheCore/Errors.swift Sources/ProtoCacheCore/Generated.swift \
               Sources/ProtoCacheCore/Hash.swift Sources/ProtoCacheCore/Mutable.swift \

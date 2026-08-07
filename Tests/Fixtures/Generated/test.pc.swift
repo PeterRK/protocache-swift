@@ -3,27 +3,29 @@ import ProtoCacheCore
 
 public struct Test_ModeValue: RawRepresentable, Hashable, Sendable, ProtoCacheDecodable {
     public let rawValue: Int32
-    public init(rawValue: Int32) { self.rawValue = rawValue }
+    @inlinable @inline(__always) public init(rawValue: Int32) { self.rawValue = rawValue }
     public static let modeA = Self(rawValue: 0)
     public static let modeB = Self(rawValue: 1)
     public static let modeC = Self(rawValue: 2)
-    public static func _decodeProtoCache(from field: FieldView) -> Self? { field.scalar(Int32.self).map(Self.init(rawValue:)) }
-    public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing ProtoCacheBytes) -> Self? { Int32._decodeProtoCache(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner).map(Self.init(rawValue:)) }
+    @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { guard let value = field.scalar(Int32.self) else { return nil }; return Self(rawValue: value) }
+    @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let value = Int32._decodeProtoCache(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(rawValue: value) }
 }
 
-public struct Test_SmallView: GeneratedView {
+public struct Test_SmallView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public enum Field: Int, Sendable {
         case i32 = 0
         case flag = 1
         case str = 3
     }
-    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
-    public var i32: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
-    public var flag: Bool { _protoCacheMessageView.scalar(1, as: Bool.self) }
-    public var str: StringView { _protoCacheMessageView.string(3) }
+    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
+    @inlinable @inline(__always) public var i32: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
+    @inlinable @inline(__always) public var flag: Bool { _protoCacheMessageView.scalar(1, as: Bool.self) }
+    @inlinable @inline(__always) public var str: StringView { @_lifetime(copy self) borrowing get { _protoCacheMessageView.string(3) } }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.Small",
         fields: [
@@ -34,69 +36,80 @@ public struct Test_SmallView: GeneratedView {
     ) }
 }
 
-public struct Test_Vec2D_Vec1DView: GeneratedView, RandomAccessCollection {
-    public typealias Index = Int
+public struct Test_Vec2D_Vec1DView: ~Escapable, GeneratedView {
     public typealias Element = Float
     private let _value: ArrayView<Element>
-    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }
-    public init(_ bytes: ProtoCacheBytes) { _value = ArrayView(bytes) }
-    public var startIndex: Int { _value.startIndex }
-    public var endIndex: Int { _value.endIndex }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _value._protoCacheSpan } }
+    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = ArrayView(bytes) }
+    @_lifetime(copy field) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
+    public var count: Int { _value.count }
+    public var isEmpty: Bool { _value.isEmpty }
     public subscript(position: Int) -> Element { _value[position] }
+    public func forEach(_ body: (borrowing Element) throws -> Void) rethrows { try _value.forEach(body) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(fullName: "test.Vec2D.Vec1D", fields: [
         _ProtoCacheFieldLayout(number: 1, protoName: "_", kind: .array({ .scalar(.float) })),
     ], isAlias: true) }
 }
 
-public struct Test_Vec2DView: GeneratedView, RandomAccessCollection {
-    public typealias Index = Int
+public struct Test_Vec2DView: ~Escapable, GeneratedView {
     public typealias Element = Test_Vec2D_Vec1DView
     private let _value: ArrayView<Element>
-    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }
-    public init(_ bytes: ProtoCacheBytes) { _value = ArrayView(bytes) }
-    public var startIndex: Int { _value.startIndex }
-    public var endIndex: Int { _value.endIndex }
-    public subscript(position: Int) -> Element { _value[position] }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _value._protoCacheSpan } }
+    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = ArrayView(bytes) }
+    @_lifetime(copy field) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
+    public var count: Int { _value.count }
+    public var isEmpty: Bool { _value.isEmpty }
+    public subscript(position: Int) -> Element { @_lifetime(copy self) borrowing get { _value[position] } }
+    public func forEach(_ body: (borrowing Element) throws -> Void) rethrows { try _value.forEach(body) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(fullName: "test.Vec2D", fields: [
         _ProtoCacheFieldLayout(number: 1, protoName: "_", kind: .array({ .message({ Test_Vec2D_Vec1DView._protoCacheLayout }) })),
     ], isAlias: true) }
 }
 
-public struct Test_ArrMap_ArrayView: GeneratedView, RandomAccessCollection {
-    public typealias Index = Int
+public struct Test_ArrMap_ArrayView: ~Escapable, GeneratedView {
     public typealias Element = Float
     private let _value: ArrayView<Element>
-    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }
-    public init(_ bytes: ProtoCacheBytes) { _value = ArrayView(bytes) }
-    public var startIndex: Int { _value.startIndex }
-    public var endIndex: Int { _value.endIndex }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _value._protoCacheSpan } }
+    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = ArrayView(bytes) }
+    @_lifetime(copy field) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
+    public var count: Int { _value.count }
+    public var isEmpty: Bool { _value.isEmpty }
     public subscript(position: Int) -> Element { _value[position] }
+    public func forEach(_ body: (borrowing Element) throws -> Void) rethrows { try _value.forEach(body) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(fullName: "test.ArrMap.Array", fields: [
         _ProtoCacheFieldLayout(number: 1, protoName: "_", kind: .array({ .scalar(.float) })),
     ], isAlias: true) }
 }
 
-public struct Test_ArrMapView: GeneratedView, RandomAccessCollection {
-    public typealias Index = Int
+public struct Test_ArrMapView: ~Escapable, GeneratedView {
     public typealias Key = StringView
     public typealias Value = Test_ArrMap_ArrayView
-    public typealias Element = MapEntryView<Key, Value>
     private let _value: MapView<Key, Value>
-    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }
-    public init(_ bytes: ProtoCacheBytes) { _value = MapView(bytes) }
-    public var startIndex: Int { _value.startIndex }
-    public var endIndex: Int { _value.endIndex }
-    public subscript(position: Int) -> Element { _value[position] }
-    public subscript(key: Key) -> Value? { _value[key] }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _value._protoCacheSpan } }
+    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = MapView(bytes) }
+    @_lifetime(copy field) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
+    public var count: Int { _value.count }
+    public var isEmpty: Bool { _value.isEmpty }
+    @_lifetime(copy self) public func key(at position: Int) -> Key { _value.key(at: position) }
+    @_lifetime(copy self) public func value(at position: Int) -> Value { _value.value(at: position) }
+    @_lifetime(copy self) public func value(for key: borrowing Key) -> Value? { _value.value(for: key) }
+    public func forEach(_ body: (borrowing Key, borrowing Value) throws -> Void) rethrows { try _value.forEach(body) }
+    @_lifetime(copy self) public func value(for key: String) -> Value? { guard let position = _value.position(for: key) else { return nil }; return _value.value(at: position) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(fullName: "test.ArrMap", fields: [
         _ProtoCacheFieldLayout(number: 1, protoName: "_", kind: .map(key: { .string }, value: { .message({ Test_ArrMap_ArrayView._protoCacheLayout }) })),
     ], isAlias: true) }
 }
 
-public struct Test_MainView: GeneratedView {
+public struct Test_MainView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public enum Field: Int, Sendable {
         case i32 = 0
         case u32 = 1
@@ -130,38 +143,38 @@ public struct Test_MainView: GeneratedView {
         case arrays = 29
         case modev = 31
     }
-    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
-    public var i32: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
-    public var u32: UInt32 { _protoCacheMessageView.scalar(1, as: UInt32.self) }
-    public var i64: Int64 { _protoCacheMessageView.scalar(2, as: Int64.self) }
-    public var u64: UInt64 { _protoCacheMessageView.scalar(3, as: UInt64.self) }
-    public var flag: Bool { _protoCacheMessageView.scalar(4, as: Bool.self) }
-    public var mode: Test_ModeValue { .init(rawValue: _protoCacheMessageView.scalar(5, as: Int32.self)) }
-    public var str: StringView { _protoCacheMessageView.string(6) }
-    public var data: BytesView { _protoCacheMessageView.bytes(7) }
-    public var f32: Float { _protoCacheMessageView.scalar(8, as: Float.self) }
-    public var f64: Double { _protoCacheMessageView.scalar(9, as: Double.self) }
-    public var object: Test_SmallView { .init(_protoCacheMessageView.message(10).bytes) }
-    public var i32v: ArrayView<Int32> { _protoCacheMessageView.array(11) }
-    public var u64v: ArrayView<UInt64> { _protoCacheMessageView.array(12) }
-    public var strv: ArrayView<StringView> { _protoCacheMessageView.array(13) }
-    public var datav: ArrayView<BytesView> { _protoCacheMessageView.array(14) }
-    public var f32v: ArrayView<Float> { _protoCacheMessageView.array(15) }
-    public var f64v: ArrayView<Double> { _protoCacheMessageView.array(16) }
-    public var flags: BoolArrayView { BoolArrayView(_protoCacheMessageView.bytes(17)) }
-    public var objectv: ArrayView<Test_SmallView> { _protoCacheMessageView.array(18) }
-    public var tU32: UInt32 { _protoCacheMessageView.scalar(19, as: UInt32.self) }
-    public var tI32: Int32 { _protoCacheMessageView.scalar(20, as: Int32.self) }
-    public var tS32: Int32 { _protoCacheMessageView.scalar(21, as: Int32.self) }
-    public var tU64: UInt64 { _protoCacheMessageView.scalar(22, as: UInt64.self) }
-    public var tI64: Int64 { _protoCacheMessageView.scalar(23, as: Int64.self) }
-    public var tS64: Int64 { _protoCacheMessageView.scalar(24, as: Int64.self) }
-    public var index: MapView<StringView, Int32> { _protoCacheMessageView.map(25) }
-    public var objects: MapView<Int32, Test_SmallView> { _protoCacheMessageView.map(26) }
-    public var matrix: Test_Vec2DView { .init(_protoCacheMessageView.message(27).bytes) }
-    public var vector: ArrayView<Test_ArrMapView> { _protoCacheMessageView.array(28) }
-    public var arrays: Test_ArrMapView { .init(_protoCacheMessageView.message(29).bytes) }
-    public var modev: ArrayView<Test_ModeValue> { _protoCacheMessageView.array(31) }
+    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
+    @inlinable @inline(__always) public var i32: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
+    @inlinable @inline(__always) public var u32: UInt32 { _protoCacheMessageView.scalar(1, as: UInt32.self) }
+    @inlinable @inline(__always) public var i64: Int64 { _protoCacheMessageView.scalar(2, as: Int64.self) }
+    @inlinable @inline(__always) public var u64: UInt64 { _protoCacheMessageView.scalar(3, as: UInt64.self) }
+    @inlinable @inline(__always) public var flag: Bool { _protoCacheMessageView.scalar(4, as: Bool.self) }
+    @inlinable @inline(__always) public var mode: Test_ModeValue { .init(rawValue: _protoCacheMessageView.scalar(5, as: Int32.self)) }
+    @inlinable @inline(__always) public var str: StringView { @_lifetime(copy self) borrowing get { _protoCacheMessageView.string(6) } }
+    @inlinable @inline(__always) public var data: BytesView { @_lifetime(copy self) borrowing get { _protoCacheMessageView.bytes(7) } }
+    @inlinable @inline(__always) public var f32: Float { _protoCacheMessageView.scalar(8, as: Float.self) }
+    @inlinable @inline(__always) public var f64: Double { _protoCacheMessageView.scalar(9, as: Double.self) }
+    @inlinable @inline(__always) public var object: Test_SmallView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(10).bytes) } }
+    @inlinable @inline(__always) public var i32v: ArrayView<Int32> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(11) } }
+    @inlinable @inline(__always) public var u64v: ArrayView<UInt64> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(12) } }
+    @inlinable @inline(__always) public var strv: ArrayView<StringView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(13) } }
+    @inlinable @inline(__always) public var datav: ArrayView<BytesView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(14) } }
+    @inlinable @inline(__always) public var f32v: ArrayView<Float> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(15) } }
+    @inlinable @inline(__always) public var f64v: ArrayView<Double> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(16) } }
+    @inlinable @inline(__always) public var flags: BoolArrayView { @_lifetime(copy self) borrowing get { BoolArrayView(_protoCacheMessageView.bytes(17)) } }
+    @inlinable @inline(__always) public var objectv: ArrayView<Test_SmallView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(18) } }
+    @inlinable @inline(__always) public var tU32: UInt32 { _protoCacheMessageView.scalar(19, as: UInt32.self) }
+    @inlinable @inline(__always) public var tI32: Int32 { _protoCacheMessageView.scalar(20, as: Int32.self) }
+    @inlinable @inline(__always) public var tS32: Int32 { _protoCacheMessageView.scalar(21, as: Int32.self) }
+    @inlinable @inline(__always) public var tU64: UInt64 { _protoCacheMessageView.scalar(22, as: UInt64.self) }
+    @inlinable @inline(__always) public var tI64: Int64 { _protoCacheMessageView.scalar(23, as: Int64.self) }
+    @inlinable @inline(__always) public var tS64: Int64 { _protoCacheMessageView.scalar(24, as: Int64.self) }
+    @inlinable @inline(__always) public var index: MapView<StringView, Int32> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.map(25) } }
+    @inlinable @inline(__always) public var objects: MapView<Int32, Test_SmallView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.map(26) } }
+    @inlinable @inline(__always) public var matrix: Test_Vec2DView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(27).bytes) } }
+    @inlinable @inline(__always) public var vector: ArrayView<Test_ArrMapView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(28) } }
+    @inlinable @inline(__always) public var arrays: Test_ArrMapView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(29).bytes) } }
+    @inlinable @inline(__always) public var modev: ArrayView<Test_ModeValue> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(31) } }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.Main",
         fields: [
@@ -200,17 +213,19 @@ public struct Test_MainView: GeneratedView {
     ) }
 }
 
-public struct Test_CyclicAView: GeneratedView {
+public struct Test_CyclicAView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public enum Field: Int, Sendable {
         case value = 0
         case cyclic = 1
     }
-    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
-    public var value: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
-    public var cyclic: Test_CyclicBView { .init(_protoCacheMessageView.message(1).bytes) }
+    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
+    @inlinable @inline(__always) public var value: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
+    @inlinable @inline(__always) public var cyclic: Test_CyclicBView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(1).bytes) } }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.CyclicA",
         fields: [
@@ -220,17 +235,19 @@ public struct Test_CyclicAView: GeneratedView {
     ) }
 }
 
-public struct Test_CyclicBView: GeneratedView {
+public struct Test_CyclicBView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public enum Field: Int, Sendable {
         case value = 0
         case cyclic = 1
     }
-    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
-    public var value: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
-    public var cyclic: Test_CyclicAView { .init(_protoCacheMessageView.message(1).bytes) }
+    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
+    @inlinable @inline(__always) public var value: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
+    @inlinable @inline(__always) public var cyclic: Test_CyclicAView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(1).bytes) } }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.CyclicB",
         fields: [
@@ -240,15 +257,17 @@ public struct Test_CyclicBView: GeneratedView {
     ) }
 }
 
-public struct Test_Deprecated_ValidView: GeneratedView {
+public struct Test_Deprecated_ValidView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public enum Field: Int, Sendable {
         case val = 0
     }
-    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
-    public var val: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
+    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }
+    @inlinable @inline(__always) public var val: Int32 { _protoCacheMessageView.scalar(0, as: Int32.self) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.Deprecated.Valid",
         fields: [
@@ -257,10 +276,12 @@ public struct Test_Deprecated_ValidView: GeneratedView {
     ) }
 }
 
-public struct Test_DeprecatedView: GeneratedView {
+public struct Test_DeprecatedView: ~Escapable, GeneratedView {
     public let _protoCacheMessageView: MessageView
-    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }
-    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }
+    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _protoCacheMessageView.bytes } }
+    @_lifetime(copy bytes) @inlinable @inline(__always) public init(_ bytes: Span) { _protoCacheMessageView = MessageView(bytes) }
+    @_lifetime(copy field) @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
+    @_lifetime(copy owner) @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(
         fullName: "test.Deprecated",
         fields: [

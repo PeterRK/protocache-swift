@@ -47,30 +47,14 @@ public struct _ProtoCacheLayout: Sendable {
     }
 }
 
-public protocol GeneratedView: ProtoCacheDecodable {
-    init(_ bytes: ProtoCacheBytes)
-    var _protoCacheBytes: ProtoCacheBytes { get }
+public protocol GeneratedView: ~Escapable, ProtoCacheDecodable {
+    @_lifetime(copy bytes)
+    init(_ bytes: Span)
+    var _protoCacheSpan: Span {
+        @_lifetime(borrow self)
+        borrowing get
+    }
     static var _protoCacheLayout: _ProtoCacheLayout { get }
-}
-
-extension GeneratedView {
-    public static func _decodeProtoCache(from field: FieldView) -> Self? {
-        Self(field.objectBytes)
-    }
-
-    public static func _decodeProtoCache(
-        fromRawWords baseAddress: UnsafeRawPointer,
-        availableByteCount: Int,
-        width: Int,
-        owner: borrowing ProtoCacheBytes
-    ) -> Self? {
-        _protoCacheObjectBytes(
-            fromRawWords: baseAddress,
-            availableByteCount: availableByteCount,
-            width: width,
-            owner: owner
-        ).map(Self.init)
-    }
 }
 
 public struct ProtoCacheEnum<Domain>: RawRepresentable, Hashable, Sendable where Domain: Sendable {
@@ -79,21 +63,36 @@ public struct ProtoCacheEnum<Domain>: RawRepresentable, Hashable, Sendable where
 }
 
 extension ProtoCacheEnum: ProtoCacheDecodable {
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(from field: FieldView) -> Self? {
-        field.scalar(Int32.self).map(Self.init(rawValue:))
+        guard let value = field.scalar(Int32.self) else { return nil }
+        return Self(rawValue: value)
     }
 
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(
         fromRawWords baseAddress: UnsafeRawPointer,
         availableByteCount: Int,
         width: Int,
-        owner: borrowing ProtoCacheBytes
+        owner: borrowing Span
     ) -> Self? {
-        Int32._decodeProtoCache(
+        guard let value = Int32._decodeProtoCache(
             fromRawWords: baseAddress,
             availableByteCount: availableByteCount,
             width: width,
             owner: owner
-        ).map(Self.init(rawValue:))
+        ) else { return nil }
+        return Self(rawValue: value)
+    }
+}
+
+extension ProtoCacheBytes {
+    public borrowing func withView<View: GeneratedView, R>(
+        _ type: View.Type = View.self,
+        _ body: (borrowing View) throws -> R
+    ) rethrows -> R where View: ~Escapable {
+        try withBorrowedSpan { span in
+            try body(View(span))
+        }
     }
 }

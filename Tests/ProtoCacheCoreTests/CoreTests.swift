@@ -8,17 +8,23 @@ import Testing
         8,
     ]
     let bytes = words.withUnsafeBytes { ProtoCacheBytes(copying: $0) }
-    let message = MessageView(bytes)
-    #expect(message.scalar(0, as: Int32.self) == 42)
-    #expect(message.string(1).count == 2)
+    bytes.withBorrowedSpan { span in
+        let message = MessageView(span)
+        #expect(message.scalar(0, as: Int32.self) == 42)
+        let count = message.string(1).count
+        #expect(count == 2)
+    }
 }
 
 @Test func omittedFieldsUseCanonicalDefaults() {
     let view = MessageView(.empty)
     #expect(view.scalar(0, as: Int64.self) == 0)
-    #expect(view.string(1).isEmpty)
-    #expect(view.bytes(2).isEmpty)
-    #expect(view.array(3, of: Int32.self).isEmpty)
+    let stringIsEmpty = view.string(1).isEmpty
+    let bytesAreEmpty = view.bytes(2).isEmpty
+    let arrayIsEmpty = view.array(3, of: Int32.self).isEmpty
+    #expect(stringIsEmpty)
+    #expect(bytesAreEmpty)
+    #expect(arrayIsEmpty)
     #expect(view.message(4).scalar(0, as: UInt32.self) == 0)
 }
 
@@ -47,8 +53,11 @@ import Testing
 @Test func perfectHashFindsEveryKey() throws {
     let keys = ["zero", "one", "two", "three"].map { Array($0.utf8) }
     let built = try PerfectHash.build(keys)
-    let view = PerfectHashView(ProtoCacheBytes(copying: built.index))
-    #expect(Set(keys.map { $0.withUnsafeBytes { view.locate($0)! } }).count == keys.count)
+    let bytes = ProtoCacheBytes(copying: built.index)
+    bytes.withBorrowedSpan { span in
+        let view = PerfectHashView(span)
+        #expect(Set(keys.map { $0.withUnsafeBytes { view.locate($0)! } }).count == keys.count)
+    }
 }
 
 @Test func reverseEncodingMessageRoundTrip() throws {
@@ -59,9 +68,12 @@ import Testing
     fields[1] = try _ProtoCacheEncoding.string("hello", in: buffer)
     let root = try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
     let bytes = try buffer.finish(root)
-    let view = MessageView(bytes)
-    #expect(view.scalar(0, as: Int32.self) == 123)
-    #expect(view.string(1).equalsUTF8("hello"))
+    bytes.withBorrowedSpan { span in
+        let view = MessageView(span)
+        #expect(view.scalar(0, as: Int32.self) == 123)
+        let matches = view.string(1).equalsUTF8("hello")
+        #expect(matches)
+    }
 }
 
 @Test func reverseEncodingArrayRoundTrip() throws {
@@ -70,8 +82,12 @@ import Testing
     let values = [1, 2, 3, 4].map { _ProtoCacheEncoding.scalar(Int32($0)) }
     let root = try _ProtoCacheEncoding.array(values, in: buffer, since: checkpoint)
     let bytes = try buffer.finish(root)
-    let view = ArrayView<Int32>(bytes)
-    #expect(Array(view) == [1, 2, 3, 4])
+    bytes.withBorrowedSpan { span in
+        let view = ArrayView<Int32>(span)
+        var actual: [Int32] = []
+        view.forEach { actual.append($0) }
+        #expect(actual == [1, 2, 3, 4])
+    }
 }
 
 @Test func reverseEncodingMapRoundTrip() throws {
@@ -89,10 +105,12 @@ import Testing
         since: checkpoint
     )
     let bytes = try buffer.finish(root)
-    let view = MapView<StringView, Int32>(bytes)
-    #expect(view["alpha"] == 10)
-    #expect(view["gamma"] == 30)
-    #expect(view["missing"] == nil)
+    bytes.withBorrowedSpan { span in
+        let view = MapView<StringView, Int32>(span)
+        #expect(view.position(for: "alpha").map { view.value(at: $0) } == 10)
+        #expect(view.position(for: "gamma").map { view.value(at: $0) } == 30)
+        #expect(view.position(for: "missing") == nil)
+    }
 }
 
 @Test func extendedMessageSectionsRoundTrip() throws {
@@ -102,8 +120,11 @@ import Testing
     fields[12] = _ProtoCacheEncoding.scalar(UInt64(12))
     fields[39] = _ProtoCacheEncoding.scalar(Int32(39))
     let root = try _ProtoCacheEncoding.message(&fields, in: buffer, since: 0)
-    let view = MessageView(try buffer.finish(root))
-    #expect(view.scalar(0, as: UInt32.self) == 1)
-    #expect(view.scalar(12, as: UInt64.self) == 12)
-    #expect(view.scalar(39, as: Int32.self) == 39)
+    let bytes = try buffer.finish(root)
+    bytes.withBorrowedSpan { span in
+        let view = MessageView(span)
+        #expect(view.scalar(0, as: UInt32.self) == 1)
+        #expect(view.scalar(12, as: UInt64.self) == 12)
+        #expect(view.scalar(39, as: Int32.self) == 39)
+    }
 }

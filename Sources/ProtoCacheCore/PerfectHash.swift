@@ -1,5 +1,5 @@
-public struct PerfectHashView: @unchecked Sendable {
-    let bytes: ProtoCacheBytes
+public struct PerfectHashView: ~Escapable, Copyable, @unchecked Sendable {
+    let bytes: Span
     public let count: Int
     public let byteCount: Int
     private let section: Int
@@ -7,7 +7,27 @@ public struct PerfectHashView: @unchecked Sendable {
     private let tableOffset: Int
     private let tableWidth: Int
 
-    public init(_ bytes: ProtoCacheBytes) {
+    @inline(__always)
+    static func encodedByteCount(for count: Int) -> Int {
+        guard count > 1 else { return 4 }
+        let section = PerfectHash.section(for: count)
+        let bitmapSize = PerfectHash.bitmapSize(section: section)
+        let tableWidth = count > 65_535 ? 4 : count > 255 ? 2 : count > 24 ? 1 : 0
+        return 8 + bitmapSize + (bitmapSize / 8) * tableWidth
+    }
+
+    @_lifetime(copy bytes)
+    public init(_ bytes: Span) {
+        guard bytes.count >= 4 else {
+            self.bytes = .empty
+            count = 0
+            byteCount = 4
+            section = 0
+            bitmapOffset = 0
+            tableOffset = 0
+            tableWidth = 0
+            return
+        }
         self.bytes = bytes
         count = Int(bytes.loadUInt32(wordOffset: 0) & 0x0fff_ffff)
         if count <= 1 {
@@ -18,15 +38,15 @@ public struct PerfectHashView: @unchecked Sendable {
             tableWidth = count > 65_535 ? 4 : count > 255 ? 2 : count > 24 ? 1 : 0
             bitmapOffset = 8
             tableOffset = bitmapOffset + bitmapSize
-            byteCount = tableOffset + (bitmapSize / 8) * tableWidth
+            byteCount = Self.encodedByteCount(for: count)
             assert(byteCount <= bytes.count)
         }
     }
 
-    private init() {
-        bytes = .empty; count = 0; byteCount = 4; section = 0; bitmapOffset = 0; tableOffset = 0; tableWidth = 0
+    public static var empty: PerfectHashView {
+        @_lifetime(immortal)
+        get { PerfectHashView(.empty) }
     }
-    public static let empty = PerfectHashView()
 
     public func locate(_ key: UnsafeRawBufferPointer) -> Int? {
         if count == 0 { return nil }
@@ -125,8 +145,10 @@ public enum PerfectHash {
             for block in 0..<blocks { output.append(running); running &+= UInt8(validCount(bitmap, block)) }
         }
         let owned = ProtoCacheBytes(copying: output)
-        let view = PerfectHashView(owned)
-        let positions = keys.map { key in key.withUnsafeBytes { view.locate($0)! } }
+        let positions = owned.withBorrowedSpan { bytes in
+            let view = PerfectHashView(bytes)
+            return keys.map { key in key.withUnsafeBytes { view.locate($0)! } }
+        }
         return (output, positions)
     }
 

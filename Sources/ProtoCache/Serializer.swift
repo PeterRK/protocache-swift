@@ -6,7 +6,7 @@ public enum ProtoCache {
     public static func serialize<M: Message, View: GeneratedView>(
         _ message: borrowing M,
         as viewType: View.Type
-    ) throws -> ProtoCacheBytes {
+    ) throws -> ProtoCacheBytes where View: ~Escapable {
         let layout = viewType._protoCacheLayout
         guard layout.runtimeABI == 1 else {
             throw ProtoCacheError.invalidSchema("unsupported generated runtime ABI \(layout.runtimeABI)")

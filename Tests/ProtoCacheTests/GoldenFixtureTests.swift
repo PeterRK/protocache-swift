@@ -19,23 +19,26 @@ private func fixtureBytes(_ name: String) throws -> ProtoCacheBytes? {
 @Test func fixedGoldenFixtureReadsAllCompositeShapes() throws {
     guard let bytes = try fixtureBytes("test.pc") else { return }
     #expect(bytes.count == 780)
-    let view = Test_MainView(bytes)
-    #expect(view.i32 == -999)
-    #expect(view.u32 == 1234)
-    #expect(view.i64 == -9_876_543_210)
-    #expect(view.u64 == 98_765_432_123_456_789)
-    #expect(view.flag)
-    #expect(view.mode == .modeC)
-    #expect(view.str.equalsUTF8("Hello World!"))
-    #expect(view.object.i32 == 88)
-    #expect(Array(view.i32v) == [1, 2])
-    #expect(view.index["abc-1"] == 1)
-    #expect(view.index["abc-3"] == nil)
-    #expect(view.objects[4]?.i32 == 4)
-    #expect(view.matrix.count == 3)
-    #expect(view.matrix[2][2] == 9)
-    #expect(view.vector.count == 2)
-    #expect(view.arrays.count > 0)
+    bytes.withView(Test_MainView.self) { view in
+        #expect(view.i32 == -999)
+        #expect(view.u32 == 1234)
+        #expect(view.i64 == -9_876_543_210)
+        #expect(view.u64 == 98_765_432_123_456_789)
+        let flag = view.flag
+        #expect(flag)
+        #expect(view.mode == Test_ModeValue.modeC)
+        let stringMatches = view.str.equalsUTF8("Hello World!")
+        #expect(stringMatches)
+        #expect(view.object.i32 == 88)
+        #expect(view.i32v.count == 2 && view.i32v[0] == 1 && view.i32v[1] == 2)
+        #expect(view.index.position(for: "abc-1").map { view.index.value(at: $0) } == 1)
+        #expect(view.index.position(for: "abc-3") == nil)
+        #expect(view.objects.value(for: Int32(4))?.i32 == 4)
+        #expect(view.matrix.count == 3)
+        #expect(view.matrix[2][2] == 9)
+        #expect(view.vector.count == 2)
+        #expect(view.arrays.count > 0)
+    }
 }
 
 @Test func fixedCompressedGoldenFixtureIsCompatible() throws {
@@ -44,8 +47,9 @@ private func fixtureBytes(_ name: String) throws -> ProtoCacheBytes? {
     #expect(compressed.count == 574)
     let decoded = try ProtoCacheCompression.decompress(compressed)
     #expect(decoded.count == raw.count)
-    let view = Test_MainView(decoded)
-    #expect(view.i32 == -999)
-    #expect(view.index["abc-1"] == 1)
-    #expect(view.matrix[2][2] == 9)
+    decoded.withView(Test_MainView.self) { view in
+        #expect(view.i32 == -999)
+        #expect(view.index.position(for: "abc-1").map { view.index.value(at: $0) } == 1)
+        #expect(view.matrix[2][2] == 9)
+    }
 }

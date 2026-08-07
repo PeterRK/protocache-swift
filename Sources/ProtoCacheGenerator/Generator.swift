@@ -120,12 +120,12 @@ struct ProtoCacheSwiftGenerator {
     private static func render(enum item: EnumProto, fullName: String) -> String {
         let name = "\(swiftType(fullName))Value"
         var output = "public struct \(name): RawRepresentable, Hashable, Sendable, ProtoCacheDecodable {\n"
-        output += "    public let rawValue: Int32\n    public init(rawValue: Int32) { self.rawValue = rawValue }\n"
+        output += "    public let rawValue: Int32\n    @inlinable @inline(__always) public init(rawValue: Int32) { self.rawValue = rawValue }\n"
         for value in item.value where !value.options.deprecated {
             output += "    public static let \(identifier(lowerCamel(value.name))) = Self(rawValue: \(value.number))\n"
         }
-        output += "    public static func _decodeProtoCache(from field: FieldView) -> Self? { field.scalar(Int32.self).map(Self.init(rawValue:)) }\n"
-        output += "    public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing ProtoCacheBytes) -> Self? { Int32._decodeProtoCache(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner).map(Self.init(rawValue:)) }\n}\n\n"
+        output += "    @inlinable @inline(__always) public static func _decodeProtoCache(from field: FieldView) -> Self? { guard let value = field.scalar(Int32.self) else { return nil }; return Self(rawValue: value) }\n"
+        output += "    @inlinable @inline(__always) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let value = Int32._decodeProtoCache(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(rawValue: value) }\n}\n\n"
         return output
     }
 
@@ -142,30 +142,43 @@ struct ProtoCacheSwiftGenerator {
             if let entry = mapEntry(field, index: index) {
                 let key = try readType(entry.field[0], index: index, repeatedElement: true)
                 let value = try readType(entry.field[1], index: index, repeatedElement: true)
-                output += "public struct \(name): GeneratedView, RandomAccessCollection {\n"
-                output += "    public typealias Index = Int\n    public typealias Key = \(key)\n    public typealias Value = \(value)\n    public typealias Element = MapEntryView<Key, Value>\n"
-                output += "    private let _value: MapView<Key, Value>\n    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }\n"
-                output += "    public init(_ bytes: ProtoCacheBytes) { _value = MapView(bytes) }\n"
-                output += "    public var startIndex: Int { _value.startIndex }\n    public var endIndex: Int { _value.endIndex }\n    public subscript(position: Int) -> Element { _value[position] }\n    public subscript(key: Key) -> Value? { _value[key] }\n"
+                output += "public struct \(name): ~Escapable, GeneratedView {\n"
+                output += "    public typealias Key = \(key)\n    public typealias Value = \(value)\n"
+                output += "    private let _value: MapView<Key, Value>\n"
+                output += generatedViewStorage(for: "_value._protoCacheSpan", initializer: "_value = MapView(bytes)")
+                output += "    public var count: Int { _value.count }\n    public var isEmpty: Bool { _value.isEmpty }\n"
+                output += aliasMapAccessor(name: "key", type: "Key", borrowed: isBorrowed(entry.field[0]))
+                output += aliasMapAccessor(name: "value", type: "Value", borrowed: isBorrowed(entry.field[1]))
+                output += "    @_lifetime(copy self) public func value(for key: borrowing Key) -> Value? { _value.value(for: key) }\n"
+                output += "    public func forEach(_ body: (borrowing Key, borrowing Value) throws -> Void) rethrows { try _value.forEach(body) }\n"
+                if entry.field[0].type == .string {
+                    output += "    @_lifetime(copy self) public func value(for key: String) -> Value? { guard let position = _value.position(for: key) else { return nil }; return _value.value(at: position) }\n"
+                }
             } else {
-                output += "public struct \(name): GeneratedView, RandomAccessCollection {\n"
-                output += "    public typealias Index = Int\n    public typealias Element = \(try readType(field, index: index, repeatedElement: true))\n"
-                output += "    private let _value: ArrayView<Element>\n    public var _protoCacheBytes: ProtoCacheBytes { _value._protoCacheBytes }\n"
-                output += "    public init(_ bytes: ProtoCacheBytes) { _value = ArrayView(bytes) }\n"
-                output += "    public var startIndex: Int { _value.startIndex }\n    public var endIndex: Int { _value.endIndex }\n    public subscript(position: Int) -> Element { _value[position] }\n"
+                output += "public struct \(name): ~Escapable, GeneratedView {\n"
+                output += "    public typealias Element = \(try readType(field, index: index, repeatedElement: true))\n"
+                output += "    private let _value: ArrayView<Element>\n"
+                output += generatedViewStorage(for: "_value._protoCacheSpan", initializer: "_value = ArrayView(bytes)")
+                output += "    public var count: Int { _value.count }\n    public var isEmpty: Bool { _value.isEmpty }\n"
+                if isBorrowed(field) {
+                    output += "    public subscript(position: Int) -> Element { @_lifetime(copy self) borrowing get { _value[position] } }\n"
+                } else {
+                    output += "    public subscript(position: Int) -> Element { _value[position] }\n"
+                }
+                output += "    public func forEach(_ body: (borrowing Element) throws -> Void) rethrows { try _value.forEach(body) }\n"
             }
             output += "    public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(fullName: \"\(trimDot(fullName))\", fields: [\n"
             output += "        _ProtoCacheFieldLayout(number: 1, protoName: \"_\", kind: \(try metadataKind(field, index: index))),\n    ], isAlias: true) }\n}\n\n"
             return output
         }
         let fields = activeFields(message)
-        output += "public struct \(name): GeneratedView {\n"
-        output += "    public let _protoCacheMessageView: MessageView\n    public var _protoCacheBytes: ProtoCacheBytes { _protoCacheMessageView.bytes }\n"
-        output += "    public init(_ bytes: ProtoCacheBytes) { _protoCacheMessageView = MessageView(bytes) }\n"
+        output += "public struct \(name): ~Escapable, GeneratedView {\n"
+        output += "    public let _protoCacheMessageView: MessageView\n"
+        output += generatedViewStorage(for: "_protoCacheMessageView.bytes", initializer: "_protoCacheMessageView = MessageView(bytes)", inline: true)
         if !fields.isEmpty {
             output += "    public enum Field: Int, Sendable {\n"
             for field in fields { output += "        case \(identifier(lowerCamel(field.name))) = \(field.number - 1)\n" }
-            output += "    }\n    public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }\n"
+            output += "    }\n    @inlinable @inline(__always) public func hasField(_ field: Field) -> Bool { _protoCacheMessageView.hasField(field.rawValue) }\n"
         }
         for field in fields { output += try renderGetter(field, index: index) }
         output += "    public static var _protoCacheLayout: _ProtoCacheLayout { _ProtoCacheLayout(\n        fullName: \"\(trimDot(fullName))\",\n        fields: [\n"
@@ -176,27 +189,50 @@ struct ProtoCacheSwiftGenerator {
         return output
     }
 
+    private static func generatedViewStorage(for span: String, initializer: String, inline: Bool = false) -> String {
+        let attributes = inline ? "@inlinable @inline(__always) " : ""
+        return "    public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { \(span) } }\n" +
+            "    @_lifetime(copy bytes) \(attributes)public init(_ bytes: Span) { \(initializer) }\n" +
+            "    @_lifetime(copy field) \(attributes)public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }\n" +
+            "    @_lifetime(copy owner) \(attributes)public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }\n"
+    }
+
     private static func renderGetter(_ field: FieldProto, index: SchemaIndex) throws -> String {
         let property = identifier(lowerCamel(field.name)), id = field.number - 1
         if let entry = mapEntry(field, index: index) {
             let key = try readType(entry.field[0], index: index, repeatedElement: true)
             let value = try readType(entry.field[1], index: index, repeatedElement: true)
-            return "    public var \(property): MapView<\(key), \(value)> { _protoCacheMessageView.map(\(id)) }\n"
+            return borrowedGetter(property, type: "MapView<\(key), \(value)>", expression: "_protoCacheMessageView.map(\(id))")
         }
         if field.label == .repeated {
-            if field.type == .bool { return "    public var \(property): BoolArrayView { BoolArrayView(_protoCacheMessageView.bytes(\(id))) }\n" }
+            if field.type == .bool { return borrowedGetter(property, type: "BoolArrayView", expression: "BoolArrayView(_protoCacheMessageView.bytes(\(id)))") }
             let element = try readType(field, index: index, repeatedElement: true)
-            return "    public var \(property): ArrayView<\(element)> { _protoCacheMessageView.array(\(id)) }\n"
+            return borrowedGetter(property, type: "ArrayView<\(element)>", expression: "_protoCacheMessageView.array(\(id))")
         }
         switch field.type {
-        case .string: return "    public var \(property): StringView { _protoCacheMessageView.string(\(id)) }\n"
-        case .bytes: return "    public var \(property): BytesView { _protoCacheMessageView.bytes(\(id)) }\n"
-        case .message: return "    public var \(property): \(try readType(field, index: index, repeatedElement: true)) { .init(_protoCacheMessageView.message(\(id)).bytes) }\n"
-        case .enum: return "    public var \(property): \(try readType(field, index: index, repeatedElement: true)) { .init(rawValue: _protoCacheMessageView.scalar(\(id), as: Int32.self)) }\n"
+        case .string: return borrowedGetter(property, type: "StringView", expression: "_protoCacheMessageView.string(\(id))")
+        case .bytes: return borrowedGetter(property, type: "BytesView", expression: "_protoCacheMessageView.bytes(\(id))")
+        case .message: return borrowedGetter(property, type: try readType(field, index: index, repeatedElement: true), expression: ".init(_protoCacheMessageView.message(\(id)).bytes)")
+        case .enum: return "    @inlinable @inline(__always) public var \(property): \(try readType(field, index: index, repeatedElement: true)) { .init(rawValue: _protoCacheMessageView.scalar(\(id), as: Int32.self)) }\n"
         default:
             let type = try readType(field, index: index, repeatedElement: true)
-            return "    public var \(property): \(type) { _protoCacheMessageView.scalar(\(id), as: \(type).self) }\n"
+            return "    @inlinable @inline(__always) public var \(property): \(type) { _protoCacheMessageView.scalar(\(id), as: \(type).self) }\n"
         }
+    }
+
+    private static func borrowedGetter(_ property: String, type: String, expression: String) -> String {
+        "    @inlinable @inline(__always) public var \(property): \(type) { @_lifetime(copy self) borrowing get { \(expression) } }\n"
+    }
+
+    private static func aliasMapAccessor(name: String, type: String, borrowed: Bool) -> String {
+        if borrowed {
+            return "    @_lifetime(copy self) public func \(name)(at position: Int) -> \(type) { _value.\(name)(at: position) }\n"
+        }
+        return "    public func \(name)(at position: Int) -> \(type) { _value.\(name)(at: position) }\n"
+    }
+
+    private static func isBorrowed(_ field: FieldProto) -> Bool {
+        field.type == .string || field.type == .bytes || field.type == .message
     }
 
     private static func renderExtra(file: FileProto, index: SchemaIndex) throws -> String {
@@ -219,7 +255,7 @@ struct ProtoCacheSwiftGenerator {
         let fields = activeFields(message)
         let slotCount = max(1, Int(fields.map(\.number).max() ?? 1))
         output += "public struct \(name): Sendable {\n"
-        output += "    private var _source: \(view)\n    private var _accessed = _ProtoCacheAccessed(fieldCount: \(slotCount))\n"
+        output += "    private var _source: ProtoCacheBytes\n    private var _accessed = _ProtoCacheAccessed(fieldCount: \(slotCount))\n"
         for field in fields {
             let property = identifier(lowerCamel(field.name))
             let type = try mutableType(field, index: index)
@@ -227,15 +263,15 @@ struct ProtoCacheSwiftGenerator {
                 output += "    private var _\(property): _ProtoCacheBox<\(type)>?\n"
             } else { output += "    private var _\(property): \(type)?\n" }
         }
-        output += "    public init() { _source = .init(.empty) }\n    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }\n"
-        for field in fields { output += try renderMutableProperty(field, index: index) }
+        output += "    public init() { _source = .empty }\n    public init(_ bytes: ProtoCacheBytes) { _source = bytes }\n"
+        for field in fields { output += try renderMutableProperty(field, view: view, index: index) }
         output += "    public var _isProtoCacheEmpty: Bool {\n"
-        for field in fields { output += try renderEmptyCheck(field, index: index) }
+        for field in fields { output += try renderEmptyCheck(field, view: view, index: index) }
         output += "        return true\n    }\n"
         output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {\n"
-        output += "        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }\n"
+        output += "        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }\n"
         output += "        let checkpoint = buffer.checkpoint\n        var fields = [_ProtoCacheUnit](repeating: .empty, count: \(slotCount))\n"
-        for field in fields { output += try renderMutableEncoding(field, index: index) }
+        for field in fields { output += try renderMutableEncoding(field, view: view, index: index) }
         output += "        return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)\n    }\n"
         output += "    public func serialized() throws -> ProtoCacheBytes {\n        let buffer = _ProtoCacheBuffer()\n        return try buffer.finish(_encodeProtoCache(in: buffer))\n    }\n"
         output += "}\n\n"
@@ -246,22 +282,22 @@ struct ProtoCacheSwiftGenerator {
         let field = message.field[0]
         let name = "\(swiftType(fullName))Mutable", view = "\(swiftType(fullName))View"
         let type = try mutableType(field, index: index)
-        var output = "public struct \(name): Sendable {\n    private var _source: \(view)?\n    private var _value: \(type)?\n"
+        var output = "public struct \(name): Sendable {\n    private var _source: ProtoCacheBytes?\n    private var _value: \(type)?\n"
         output += "    public init() { _source = nil }\n    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }\n"
-        let decoded = try aliasOwnedExpression(field, index: index)
+        let decoded = try aliasOwnedExpression(field, view: view, index: index)
         output += "    public var value: \(type) {\n        get { _value ?? (\(decoded)) }\n        set { _value = newValue }\n        _modify {\n            if _value == nil { _value = \(decoded) }\n            yield &_value!\n        }\n    }\n"
         output += "    public var _isProtoCacheEmpty: Bool { value.isEmpty }\n"
         output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {\n"
-        output += "        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source._protoCacheBytes, in: buffer) }\n"
+        output += "        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source, in: buffer) }\n"
         output += try renderContainerEncoding(field, value: "value", target: "return", index: index, indent: "        ")
         output += "    }\n    public func serialized() throws -> ProtoCacheBytes { let buffer = _ProtoCacheBuffer(); return try buffer.finish(_encodeProtoCache(in: buffer)) }\n}\n\n"
         return output
     }
 
-    private static func renderMutableProperty(_ field: FieldProto, index: SchemaIndex) throws -> String {
+    private static func renderMutableProperty(_ field: FieldProto, view: String, index: SchemaIndex) throws -> String {
         let property = identifier(lowerCamel(field.name)), id = field.number - 1
         let type = try mutableType(field, index: index)
-        let decoded = try ownedExpression(field, source: "_source.\(property)", index: index)
+        let decoded = try sourceOwnedExpression(field, view: view, property: property, index: index)
         var output = "    public var \(property): \(type) {\n"
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
             output += "        get { _\(property)?.value ?? (\(decoded)) }\n"
@@ -275,20 +311,20 @@ struct ProtoCacheSwiftGenerator {
         return output + "    }\n"
     }
 
-    private static func renderEmptyCheck(_ field: FieldProto, index: SchemaIndex) throws -> String {
+    private static func renderEmptyCheck(_ field: FieldProto, view: String, index: SchemaIndex) throws -> String {
         let property = identifier(lowerCamel(field.name)), id = field.number - 1
         let nonempty: String
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            return "        if let value = _\(property) { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(\(id)) { return false }\n"
+            return "        if let value = _\(property) { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
         }
         if field.label == .repeated || mapEntry(field, index: index) != nil || field.type == .string || field.type == .bytes { nonempty = "!value.isEmpty" }
         else if field.type == .enum { nonempty = "value.rawValue != 0" }
         else if field.type == .bool { nonempty = "value" }
         else { nonempty = "value != 0" }
-        return "        if let value = _\(property) { if \(nonempty) { return false } } else if _source._protoCacheMessageView.hasField(\(id)) { return false }\n"
+        return "        if let value = _\(property) { if \(nonempty) { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
     }
 
-    private static func renderMutableEncoding(_ field: FieldProto, index: SchemaIndex) throws -> String {
+    private static func renderMutableEncoding(_ field: FieldProto, view: String, index: SchemaIndex) throws -> String {
         let property = identifier(lowerCamel(field.name)), id = field.number - 1
         var output = "        if _accessed.contains(\(id)) {\n"
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
@@ -306,7 +342,11 @@ struct ProtoCacheSwiftGenerator {
             output += "            let value = _\(property)!\n            if \(condition) { fields[\(id)] = \(try encodeExpression(field, value: "value", index: index)) }\n"
         }
         let kind = try metadataKind(field, index: index)
-        output += "        } else if let original = _source._protoCacheMessageView.field(\(id)) {\n            fields[\(id)] = try _ProtoCacheEncoding.copy(original, kind: \(kind), in: buffer)\n        }\n"
+        output += "        } else {\n"
+        output += "            fields[\(id)] = try _source.withView(\(view).self) { source in\n"
+        output += "                guard let original = source._protoCacheMessageView.field(\(id)) else { return .empty }\n"
+        output += "                return try _ProtoCacheEncoding.copy(original, kind: \(kind), in: buffer)\n"
+        output += "            }\n        }\n"
         output += "        _ProtoCacheEncoding.fold(&fields[\(id)], in: buffer)\n"
         return output
     }
@@ -351,34 +391,39 @@ struct ProtoCacheSwiftGenerator {
         }
     }
 
-    private static func aliasOwnedExpression(_ field: FieldProto, index: SchemaIndex) throws -> String {
-        if let entry = mapEntry(field, index: index) {
-            let key = try ownedConversion(entry.field[0], value: "$0.key", index: index)
-            let value = try ownedConversion(entry.field[1], value: "$0.value", index: index)
-            return "_source.map { Dictionary(uniqueKeysWithValues: $0.map { (\(key), \(value)) }) } ?? [:]"
-        }
-        let element = try ownedConversion(field, value: "$0", index: index)
-        return "_source.map { $0.map { \(element) } } ?? []"
+    private static func aliasOwnedExpression(_ field: FieldProto, view: String, index: SchemaIndex) throws -> String {
+        let body = try containerOwnedBody(field, source: "source", owner: "bytes", resultType: try mutableType(field, index: index), index: index)
+        return "_source.map { bytes in bytes.withView(\(view).self) { source in \(body) } } ?? \(mapEntry(field, index: index) == nil ? "[]" : "[:]")"
     }
 
-    private static func ownedExpression(_ field: FieldProto, source: String, index: SchemaIndex) throws -> String {
-        if let entry = mapEntry(field, index: index) {
-            let key = try ownedConversion(entry.field[0], value: "$0.key", index: index)
-            let value = try ownedConversion(entry.field[1], value: "$0.value", index: index)
-            return "Dictionary(uniqueKeysWithValues: \(source).map { (\(key), \(value)) })"
+    private static func sourceOwnedExpression(_ field: FieldProto, view: String, property: String, index: SchemaIndex) throws -> String {
+        if field.label == .repeated || mapEntry(field, index: index) != nil {
+            let body = try containerOwnedBody(field, source: "source.\(property)", owner: "_source", resultType: try mutableType(field, index: index), index: index)
+            return "_source.withView(\(view).self) { source in \(body) }"
         }
-        if field.label == .repeated {
-            let element = try ownedConversion(field, value: "$0", index: index)
-            return "\(source).map { \(element) }"
+        if field.type == .message {
+            let mutable = "\(swiftType(field.typeName))Mutable"
+            return "{ let owner = _source; let range = owner.withView(\(view).self) { source in let root = source._protoCacheSpan; let nested = source.\(property); let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return \(mutable)(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()"
         }
-        return try ownedConversion(field, value: source, index: index)
+        let conversion = try ownedConversion(field, value: "source.\(property)", owner: "_source", index: index)
+        return "_source.withView(\(view).self) { source in \(conversion) }"
     }
 
-    private static func ownedConversion(_ field: FieldProto, value: String, index: SchemaIndex) throws -> String {
+    private static func containerOwnedBody(_ field: FieldProto, source: String, owner: String, resultType: String, index: SchemaIndex) throws -> String {
+        if let entry = mapEntry(field, index: index) {
+            let key = try ownedConversion(entry.field[0], value: "key", owner: owner, index: index)
+            let value = try ownedConversion(entry.field[1], value: "value", owner: owner, index: index)
+            return "var result: \(resultType) = [:]; result.reserveCapacity(\(source).count); \(source).forEach { key, value in result[\(key)] = \(value) }; return result"
+        }
+        let element = try ownedConversion(field, value: "element", owner: owner, index: index)
+        return "var result: \(resultType) = []; result.reserveCapacity(\(source).count); \(source).forEach { element in result.append(\(element)) }; return result"
+    }
+
+    private static func ownedConversion(_ field: FieldProto, value: String, owner: String, index: SchemaIndex) throws -> String {
         switch field.type {
-        case .string: "String(decoding: \(value), as: UTF8.self)"
-        case .bytes: "Array(\(value))"
-        case .message: "\(swiftType(field.typeName))Mutable(\(value)._protoCacheBytes)"
+        case .string: "\(value).withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }"
+        case .bytes: "\(value).withUnsafeBytes { Array($0) }"
+        case .message: "{ let bytes = \(owner).ownedSlice(of: \(value)._protoCacheSpan); return \(swiftType(field.typeName))Mutable(bytes) }()"
         default: value
         }
     }

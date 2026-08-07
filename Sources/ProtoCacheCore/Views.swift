@@ -18,12 +18,13 @@ func protoCacheCount64(_ input: UInt64) -> Int {
 }
 
 @inlinable @inline(__always)
-func _protoCacheObjectBytes(
+@_lifetime(copy owner)
+public func _protoCacheObjectBytes(
     fromRawWords baseAddress: UnsafeRawPointer,
     availableByteCount: Int,
     width: Int,
-    owner: borrowing ProtoCacheBytes
-) -> ProtoCacheBytes? {
+    owner: borrowing Span
+) -> Span? {
     guard width > 0, availableByteCount >= width * 4 else { return nil }
     let ownerOffset = owner.rawBaseAddress.distance(to: baseAddress)
     guard ownerOffset >= 0, ownerOffset + availableByteCount <= owner.count else { return nil }
@@ -36,56 +37,75 @@ func _protoCacheObjectBytes(
     )
 }
 
-public struct FieldView: @unchecked Sendable {
-    let tail: ProtoCacheBytes
+public struct FieldView: ~Escapable, Copyable, @unchecked Sendable {
+    let tail: Span
     public let width: Int
 
-    init(tail: ProtoCacheBytes, width: Int) {
+    @_lifetime(copy tail)
+    init(tail: Span, width: Int) {
         self.tail = tail
         self.width = width
     }
 
-    public var rawBytes: ProtoCacheBytes { tail.wordSlice(offset: 0, count: width) }
+    public var rawBytes: Span {
+        @_lifetime(copy self)
+        borrowing get { tail.wordSlice(offset: 0, count: width) }
+    }
 
-    public var objectBytes: ProtoCacheBytes {
-        let first = tail.loadUInt32(wordOffset: 0)
-        if first & 3 == 3 {
-            return tail.wordSlice(offset: Int(first >> 2))
+    public var objectBytes: Span {
+        @_lifetime(copy self)
+        borrowing get {
+            let first = tail.loadUInt32(wordOffset: 0)
+            if first & 3 == 3 {
+                return tail.wordSlice(offset: Int(first >> 2))
+            }
+            return tail
         }
-        return tail
     }
 
     public func scalar<T: ProtoCacheScalar>(_ type: T.Type = T.self) -> T? {
         T._decodeProtoCache(from: self)
     }
 
+    @_lifetime(copy self)
     public func string() -> StringView { StringView(objectBytes) }
+    @_lifetime(copy self)
     public func bytes() -> BytesView { BytesView(string()) }
+    @_lifetime(copy self)
     public func message() -> MessageView { MessageView(objectBytes) }
-    public func array<Element: ProtoCacheDecodable>(of type: Element.Type = Element.self) -> ArrayView<Element> {
+    @_lifetime(copy self)
+    public func array<Element: ProtoCacheDecodable>(of type: Element.Type = Element.self) -> ArrayView<Element>
+    where Element: ~Escapable {
         ArrayView(objectBytes)
     }
-    public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value> {
+    @_lifetime(copy self)
+    public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
+    where Key: ~Escapable, Value: ~Escapable {
         MapView(objectBytes)
     }
 }
 
-public struct MessageView: @unchecked Sendable {
-    public let bytes: ProtoCacheBytes
+public struct MessageView: ~Escapable, Copyable, @unchecked Sendable {
+    public let bytes: Span
     @usableFromInline let head: UInt32
-    @usableFromInline let sectionCount: Int
-    @usableFromInline let bodyWordOffset: Int
+    @usableFromInline let bodyWordOffset: UInt32
 
-    @inlinable public init(_ bytes: ProtoCacheBytes) {
-        let actual = bytes.count >= 4 ? bytes : .empty
-        self.bytes = actual
-        head = actual.loadUInt32(wordOffset: 0)
-        sectionCount = Int(head & 0xff)
-        bodyWordOffset = 1 + sectionCount * 2
-        assert(bodyWordOffset * 4 <= actual.count)
+    @_lifetime(copy bytes)
+    @inlinable public init(_ bytes: Span) {
+        guard bytes.count >= 4 else {
+            self.bytes = .empty
+            head = 0
+            bodyWordOffset = 1
+            return
+        }
+        self.bytes = bytes
+        head = bytes.loadUInt32(wordOffset: 0)
+        bodyWordOffset = 1 + (head & 0xff) * 2
+        assert(Int(bodyWordOffset) * 4 <= bytes.count)
     }
 
-    public func hasField(_ id: Int) -> Bool { field(id) != nil }
+    @inlinable @inline(__always)
+    public func hasField(_ id: Int) -> Bool { fieldLocation(id) != nil }
 
     @inlinable @inline(__always)
     func fieldLocation(_ id: Int) -> (start: Int, width: Int)? {
@@ -105,25 +125,27 @@ public struct MessageView: @unchecked Sendable {
         } else {
             let section = (id - 12) / 25
             let bit = (id - 12) % 25
-            guard section < sectionCount else { return nil }
+            guard section < Int(head & 0xff) else { return nil }
             let vector = bytes.loadUInt64(wordOffset: 1 + section * 2)
             width = Int((vector >> UInt64(bit * 2)) & 3)
             guard width != 0 else { return nil }
             let mask: UInt64 = bit == 0 ? 0 : (UInt64(1) << UInt64(bit * 2)) - 1
             offset = protoCacheCount64(vector & mask) + Int(vector >> 50)
         }
-        let start = bodyWordOffset + offset
+        let start = Int(bodyWordOffset) + offset
         assert((start + width) * 4 <= bytes.count)
         return (start, width)
     }
 
+    @_lifetime(copy self)
     public func field(_ id: Int) -> FieldView? {
         guard let location = fieldLocation(id) else { return nil }
         return FieldView(tail: bytes.wordSlice(offset: location.start), width: location.width)
     }
 
+    @_lifetime(copy self)
     @inlinable @inline(__always)
-    func objectBytes(_ id: Int) -> ProtoCacheBytes? {
+    func objectBytes(_ id: Int) -> Span? {
         guard let location = fieldLocation(id) else { return nil }
         let first = bytes.loadUInt32(wordOffset: location.start)
         let objectStart = first & 3 == 3 ? location.start + Int(first >> 2) : location.start
@@ -140,67 +162,119 @@ public struct MessageView: @unchecked Sendable {
         return T._decodeProtoCache(word0: word0, word1: word1)
     }
 
-    @inlinable public func string(_ id: Int) -> StringView { objectBytes(id).map(StringView.init) ?? .empty }
-    @inlinable public func bytes(_ id: Int) -> BytesView { BytesView(string(id)) }
-    @inlinable public func message(_ id: Int) -> MessageView { MessageView(objectBytes(id) ?? .empty) }
-    @inlinable public func array<Element: ProtoCacheDecodable>(_ id: Int, of type: Element.Type = Element.self) -> ArrayView<Element> {
-        objectBytes(id).map(ArrayView<Element>.init) ?? .empty
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func string(_ id: Int) -> StringView {
+        guard let bytes = objectBytes(id) else { return .empty }
+        return StringView(bytes)
     }
-    @inlinable public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(_ id: Int, key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value> {
-        objectBytes(id).map(MapView<Key, Value>.init) ?? .empty
+
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func bytes(_ id: Int) -> BytesView { BytesView(string(id)) }
+
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func message(_ id: Int) -> MessageView {
+        guard let bytes = objectBytes(id) else { return MessageView(.empty) }
+        return MessageView(bytes)
+    }
+
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func array<Element: ProtoCacheDecodable>(_ id: Int, of type: Element.Type = Element.self) -> ArrayView<Element>
+    where Element: ~Escapable {
+        guard let bytes = objectBytes(id) else { return .empty }
+        return ArrayView<Element>(bytes)
+    }
+
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func map<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>(_ id: Int, key: Key.Type = Key.self, value: Value.Type = Value.self) -> MapView<Key, Value>
+    where Key: ~Escapable, Value: ~Escapable {
+        guard let bytes = objectBytes(id) else { return .empty }
+        return MapView<Key, Value>(bytes)
     }
 }
 
-public struct BytesView: RandomAccessCollection, @unchecked Sendable {
-    public typealias Index = Int
-    public typealias Element = UInt8
-    @usableFromInline let bytes: ProtoCacheBytes
-    let payloadOffset: Int
+public struct BytesView: ~Escapable, Copyable, @unchecked Sendable {
+    @usableFromInline let bytes: Span
+    @usableFromInline let payloadOffset: Int
     public let count: Int
 
+    @_lifetime(copy string)
     @usableFromInline init(_ string: StringView) {
         bytes = string.bytes
         payloadOffset = string.payloadOffset
         count = string.count
     }
 
-    init(bytes: ProtoCacheBytes, payloadOffset: Int, count: Int) {
+    @_lifetime(copy bytes)
+    @usableFromInline init(bytes: Span, payloadOffset: Int, count: Int) {
         self.bytes = bytes
         self.payloadOffset = payloadOffset
         self.count = count
     }
 
-    public static let empty = BytesView(bytes: .empty, payloadOffset: 1, count: 0)
-    public var startIndex: Int { 0 }
-    public var endIndex: Int { count }
+    @inlinable public static var empty: BytesView {
+        @_lifetime(immortal)
+        get { BytesView(bytes: .empty, payloadOffset: 0, count: 0) }
+    }
+    @inlinable public var isEmpty: Bool { count == 0 }
+
+    @inlinable @inline(__always)
     public subscript(position: Int) -> UInt8 {
         precondition(position >= 0 && position < count)
         return bytes.loadUInt8(at: payloadOffset + position)
     }
-    public func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
-        try body(UnsafeRawBufferPointer(start: bytes.rawBaseAddress.advanced(by: payloadOffset), count: count))
+
+    @inlinable
+    public func forEach(_ body: (UInt8) throws -> Void) rethrows {
+        var index = 0
+        while index < count {
+            try body(self[index])
+            index += 1
+        }
+    }
+
+    @inlinable @inline(__always)
+    public func withUnsafeBytes<R>(
+        _ body: (UnsafeRawBufferPointer) throws -> R
+    ) rethrows -> R {
+        try bytes.withUnsafeBytes { source in
+            try body(UnsafeRawBufferPointer(
+                start: source.baseAddress?.advanced(by: payloadOffset),
+                count: count
+            ))
+        }
+    }
+
+    public func elementsEqual(_ other: borrowing BytesView) -> Bool {
+        guard count == other.count else { return false }
+        return withUnsafeBytes { left in
+            other.withUnsafeBytes { right in left.elementsEqual(right) }
+        }
     }
 }
 
-extension BytesView: Equatable {
-    public static func == (lhs: Self, rhs: Self) -> Bool {
-        guard lhs.count == rhs.count else { return false }
-        return lhs.withUnsafeBytes { l in rhs.withUnsafeBytes { r in l.elementsEqual(r) } }
-    }
-}
-
-public struct StringView: RandomAccessCollection, @unchecked Sendable {
-    public typealias Index = Int
-    public typealias Element = UInt8
-    @usableFromInline let bytes: ProtoCacheBytes
-    let payloadOffset: Int
+public struct StringView: ~Escapable, Copyable, @unchecked Sendable {
+    @usableFromInline let bytes: Span
+    @usableFromInline let payloadOffset: Int
     public let count: Int
 
-    public init(_ encoded: ProtoCacheBytes) {
+    @_lifetime(copy encoded)
+    @inlinable @inline(__always)
+    public init(_ encoded: Span) {
+        guard !encoded.isEmpty else {
+            bytes = .empty
+            payloadOffset = 0
+            count = 0
+            return
+        }
         var mark = 0
         var shift = 0
         var used = 0
-        while shift < 35 {
+        while shift < 35, used < encoded.count {
             let byte = encoded.loadUInt8(at: used)
             used += 1
             mark |= Int(byte & 0x7f) << shift
@@ -215,15 +289,32 @@ public struct StringView: RandomAccessCollection, @unchecked Sendable {
         count = length
     }
 
-    public static let empty = StringView(.empty)
-    public var startIndex: Int { 0 }
-    public var endIndex: Int { count }
+    @inlinable public static var empty: StringView {
+        @_lifetime(immortal)
+        get { StringView(.empty) }
+    }
+    @inlinable public var isEmpty: Bool { count == 0 }
+
+    @inlinable @inline(__always)
     public subscript(position: Int) -> UInt8 {
         precondition(position >= 0 && position < count)
         return bytes.loadUInt8(at: payloadOffset + position)
     }
-    public var rawBytes: BytesView { BytesView(bytes: bytes, payloadOffset: payloadOffset, count: count) }
-    public func withUnsafeUTF8<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
+
+    public var rawBytes: BytesView {
+        @_lifetime(copy self)
+        borrowing get { BytesView(bytes: bytes, payloadOffset: payloadOffset, count: count) }
+    }
+
+    @inlinable
+    public func forEach(_ body: (UInt8) throws -> Void) rethrows {
+        try rawBytes.forEach(body)
+    }
+
+    @inlinable @inline(__always)
+    public func withUnsafeUTF8<R>(
+        _ body: (UnsafeRawBufferPointer) throws -> R
+    ) rethrows -> R {
         try rawBytes.withUnsafeBytes(body)
     }
     public func equalsUTF8(_ value: String) -> Bool {
@@ -236,194 +327,292 @@ public struct StringView: RandomAccessCollection, @unchecked Sendable {
             withUnsafeUTF8 { source.elementsEqual($0) }
         }
     }
-}
 
-extension StringView: Equatable {
-    public static func == (lhs: Self, rhs: Self) -> Bool { lhs.rawBytes == rhs.rawBytes }
-}
-extension StringView: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        withUnsafeUTF8 { hasher.combine(bytes: $0) }
+    public func elementsEqual(_ other: borrowing StringView) -> Bool {
+        rawBytes.elementsEqual(other.rawBytes)
     }
 }
+
 extension StringView: ProtoCacheDecodable {
+    @_lifetime(copy field)
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(from field: FieldView) -> StringView? { field.string() }
+
+    @_lifetime(copy owner)
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(
         fromRawWords baseAddress: UnsafeRawPointer,
         availableByteCount: Int,
         width: Int,
-        owner: borrowing ProtoCacheBytes
+        owner: borrowing Span
     ) -> StringView? {
-        _protoCacheObjectBytes(
+        guard let bytes = _protoCacheObjectBytes(
             fromRawWords: baseAddress,
             availableByteCount: availableByteCount,
             width: width,
             owner: owner
-        ).map(StringView.init)
+        ) else { return nil }
+        return StringView(bytes)
     }
 }
 extension StringView: ProtoCacheMapKey {
     public func _withProtoCacheKeyBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
         try withUnsafeUTF8(body)
     }
+
+    @inlinable @inline(__always)
+    public func _protoCacheEquals(_ other: borrowing StringView) -> Bool {
+        elementsEqual(other)
+    }
 }
 
-public struct BoolArrayView: RandomAccessCollection, @unchecked Sendable {
-    public typealias Index = Int
-    private let bytes: BytesView
+public struct BoolArrayView: ~Escapable, Copyable, @unchecked Sendable {
+    @usableFromInline let bytes: BytesView
+
+    @_lifetime(copy bytes)
     public init(_ bytes: BytesView) { self.bytes = bytes }
-    public static let empty = BoolArrayView(.empty)
-    public var startIndex: Int { 0 }
-    public var endIndex: Int { bytes.count }
+
+    public static var empty: BoolArrayView {
+        @_lifetime(immortal)
+        get { BoolArrayView(.empty) }
+    }
+    public var count: Int { bytes.count }
+    public var isEmpty: Bool { bytes.isEmpty }
     public subscript(position: Int) -> Bool { bytes[position] != 0 }
+
+    @inlinable
+    public func forEach(_ body: (Bool) throws -> Void) rethrows {
+        try bytes.forEach { try body($0 != 0) }
+    }
 }
 
-public struct ArrayView<Element: ProtoCacheDecodable>: RandomAccessCollection, @unchecked Sendable {
-    public typealias Index = Int
-    @usableFromInline let bytes: ProtoCacheBytes
-    @usableFromInline let bodyWordOffset: Int
-    @usableFromInline let width: Int
-    public let count: Int
+public struct ArrayView<Element: ProtoCacheDecodable>: ~Escapable, Copyable, @unchecked Sendable
+where Element: ~Escapable {
+    @usableFromInline let bytes: Span
+    @usableFromInline let head: UInt32
 
-    @inlinable public init(_ bytes: ProtoCacheBytes) {
-        let head = bytes.loadUInt32(wordOffset: 0)
-        let parsedWidth = Int(head & 3)
-        if parsedWidth == 0 {
-            count = 0; width = 1
-        } else {
-            count = Int(head >> 2); width = parsedWidth
+    @_lifetime(copy bytes)
+    @inlinable public init(_ bytes: Span) {
+        guard bytes.count >= 4 else {
+            self.bytes = .empty
+            head = 0
+            return
         }
-        bodyWordOffset = 1
+        let parsedHead = bytes.loadUInt32(wordOffset: 0)
+        let parsedWidth = Int(parsedHead & 3)
+        if parsedWidth == 0 {
+            head = 0
+        } else {
+            head = parsedHead
+        }
         self.bytes = bytes
         assert((1 + count * width) * 4 <= bytes.count)
     }
 
-    private init(empty: Void) {
-        bytes = .empty
-        bodyWordOffset = 1
-        width = 1
-        count = 0
+    @inlinable public static var empty: Self {
+        @_lifetime(immortal)
+        get { Self(.empty) }
     }
-    public static var empty: Self { Self(empty: ()) }
-    @inlinable public var _protoCacheBytes: ProtoCacheBytes { bytes }
-    @inlinable public var startIndex: Int { 0 }
-    @inlinable public var endIndex: Int { count }
+
+    public var _protoCacheSpan: Span {
+        @_lifetime(copy self)
+        borrowing get { bytes }
+    }
+    @inlinable public var count: Int { Int(head >> 2) }
+    @inlinable public var isEmpty: Bool { count == 0 }
+    @inlinable @inline(__always) var width: Int { Swift.max(1, Int(head & 3)) }
+
     @inlinable @inline(__always)
     public subscript(position: Int) -> Element {
+        @_lifetime(copy self)
+        borrowing get {
+            precondition(position >= 0 && position < count)
+            let start = 1 + position * width
+            let byteOffset = start * 4
+            return Element._decodeProtoCache(
+                fromRawWords: bytes.rawBaseAddress.advanced(by: byteOffset),
+                availableByteCount: bytes.count - byteOffset,
+                width: width,
+                owner: bytes
+            )!
+        }
+    }
+
+    @inlinable
+    public func forEach(_ body: (borrowing Element) throws -> Void) rethrows {
+        let elementCount = Int(head >> 2)
+        let elementWidth = Swift.max(1, Int(head & 3))
+        let byteStride = elementWidth &* 4
+        var byteOffset = 4
+        var index = 0
+        while index < elementCount {
+            let element = Element._decodeProtoCache(
+                fromRawWords: bytes.rawBaseAddress.advanced(by: byteOffset),
+                availableByteCount: bytes.count - byteOffset,
+                width: elementWidth,
+                owner: bytes
+            )!
+            try body(element)
+            byteOffset &+= byteStride
+            index &+= 1
+        }
+    }
+}
+
+public struct MapView<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>: ~Escapable, Copyable, @unchecked Sendable
+where Key: ~Escapable, Value: ~Escapable {
+    @usableFromInline let bytes: Span
+    @usableFromInline let indexByteCount: Int
+
+    @_lifetime(copy bytes)
+    public init(_ bytes: Span) {
+        guard bytes.count >= 4 else {
+            self.bytes = .empty
+            indexByteCount = 4
+            return
+        }
+        self.bytes = bytes
+        let head = bytes.loadUInt32(wordOffset: 0)
+        let parsedKeyWidth = Int((head >> 30) & 3)
+        let parsedValueWidth = Int((head >> 28) & 3)
+        if parsedKeyWidth == 0 || parsedValueWidth == 0 {
+            indexByteCount = 4
+        } else {
+            indexByteCount = PerfectHashView.encodedByteCount(for: Int(head & 0x0fff_ffff))
+        }
+        assert((bodyWordOffset + (keyWidth + valueWidth) * count) * 4 <= bytes.count)
+    }
+
+    public static var empty: Self {
+        @_lifetime(immortal)
+        get { Self(.empty) }
+    }
+
+    public var _protoCacheSpan: Span {
+        @_lifetime(copy self)
+        borrowing get { bytes }
+    }
+    @inlinable public var count: Int {
+        guard bytes.count >= 4 else { return 0 }
+        let head = bytes.loadUInt32(wordOffset: 0)
+        return keyWidth == 0 || valueWidth == 0 ? 0 : Int(head & 0x0fff_ffff)
+    }
+    @inlinable public var isEmpty: Bool { count == 0 }
+    @inlinable @inline(__always) var keyWidth: Int {
+        bytes.count >= 4 ? Int((bytes.loadUInt32(wordOffset: 0) >> 30) & 3) : 0
+    }
+    @inlinable @inline(__always) var valueWidth: Int {
+        bytes.count >= 4 ? Int((bytes.loadUInt32(wordOffset: 0) >> 28) & 3) : 0
+    }
+    @inlinable @inline(__always) var bodyWordOffset: Int { (indexByteCount + 3) / 4 }
+
+    @_lifetime(copy self)
+    @inlinable @inline(__always)
+    public func key(at position: Int) -> Key {
         precondition(position >= 0 && position < count)
-        let start = bodyWordOffset + position * width
-        let byteOffset = start * 4
-        return Element._decodeProtoCache(
-            fromRawWords: bytes.rawBaseAddress.advanced(by: byteOffset),
-            availableByteCount: bytes.count - byteOffset,
-            width: width,
+        let keyWidth = self.keyWidth
+        let valueWidth = self.valueWidth
+        let start = bodyWordOffset + position * (keyWidth + valueWidth)
+        let keyByteOffset = start * 4
+        return Key._decodeProtoCache(
+            fromRawWords: bytes.rawBaseAddress.advanced(by: keyByteOffset),
+            availableByteCount: bytes.count - keyByteOffset,
+            width: keyWidth,
             owner: bytes
         )!
     }
-}
 
-public struct MapEntryView<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>: Sendable {
-    public let key: Key
-    public let value: Value
-    @inlinable public init(key: Key, value: Value) { self.key = key; self.value = value }
-}
-
-public struct MapView<Key: ProtoCacheMapKey, Value: ProtoCacheDecodable>: RandomAccessCollection, @unchecked Sendable {
-    public typealias Index = Int
-    public typealias Element = MapEntryView<Key, Value>
-    @usableFromInline let bytes: ProtoCacheBytes
-    @usableFromInline let index: PerfectHashView
-    @usableFromInline let bodyWordOffset: Int
-    @usableFromInline let keyWidth: Int
-    @usableFromInline let valueWidth: Int
-
-    public init(_ bytes: ProtoCacheBytes) {
-        self.bytes = bytes
-        let parsedKeyWidth = Int((bytes.loadUInt32(wordOffset: 0) >> 30) & 3)
-        let parsedValueWidth = Int((bytes.loadUInt32(wordOffset: 0) >> 28) & 3)
-        if parsedKeyWidth == 0 || parsedValueWidth == 0 {
-            keyWidth = 1; valueWidth = 1; index = .empty; bodyWordOffset = 1
-        } else {
-            keyWidth = parsedKeyWidth; valueWidth = parsedValueWidth
-            index = PerfectHashView(bytes); bodyWordOffset = (index.byteCount + 3) / 4
-        }
-        assert((bodyWordOffset + (keyWidth + valueWidth) * index.count) * 4 <= bytes.count)
-    }
-
-    private init(empty: Void) {
-        bytes = .empty
-        keyWidth = 1
-        valueWidth = 1
-        index = .empty
-        bodyWordOffset = 1
-    }
-    public static var empty: Self { Self(empty: ()) }
-    @inlinable public var _protoCacheBytes: ProtoCacheBytes { bytes }
-    @inlinable public var startIndex: Int { 0 }
-    @inlinable public var endIndex: Int { index.count }
-    @inlinable public var count: Int { index.count }
-
+    @_lifetime(copy self)
     @inlinable @inline(__always)
-    public subscript(position: Int) -> Element {
+    public func value(at position: Int) -> Value {
         precondition(position >= 0 && position < count)
-        return Element(
-            key: decode(Key.self, position: position, value: false)!,
-            value: decode(Value.self, position: position, value: true)!
-        )
+        let keyWidth = self.keyWidth
+        let valueWidth = self.valueWidth
+        let start = bodyWordOffset + position * (keyWidth + valueWidth) + keyWidth
+        let valueByteOffset = start * 4
+        return Value._decodeProtoCache(
+            fromRawWords: bytes.rawBaseAddress.advanced(by: valueByteOffset),
+            availableByteCount: bytes.count - valueByteOffset,
+            width: valueWidth,
+            owner: bytes
+        )!
     }
 
-    public subscript(key: Key) -> Value? {
+    @_lifetime(copy self)
+    public func value(for key: borrowing Key) -> Value? {
+        let index = PerfectHashView(bytes)
         let position = key._withProtoCacheKeyBytes { index.locate($0) }
         guard let position, position < count,
-              decode(Key.self, position: position, value: false) == key else { return nil }
-        return decode(Value.self, position: position, value: true)
+              self.key(at: position)._protoCacheEquals(key) else { return nil }
+        return value(at: position)
     }
 
-    @inlinable @inline(__always)
-    func decode<T: ProtoCacheDecodable>(
-        _ type: T.Type,
-        position: Int,
-        value: Bool
-    ) -> T? {
-        let pairWidth = keyWidth + valueWidth
-        let width = value ? valueWidth : keyWidth
-        let start = bodyWordOffset + position * pairWidth + (value ? keyWidth : 0)
-        let byteOffset = start * 4
-        return T._decodeProtoCache(
-            fromRawWords: bytes.rawBaseAddress.advanced(by: byteOffset),
-            availableByteCount: bytes.count - byteOffset,
-            width: width,
-            owner: bytes
-        )
+    @inlinable
+    public func forEach(
+        _ body: (borrowing Key, borrowing Value) throws -> Void
+    ) rethrows {
+        guard bytes.count >= 4 else { return }
+        let head = bytes.loadUInt32(wordOffset: 0)
+        let entryCount = Int(head & 0x0fff_ffff)
+        let keyWidth = Int((head >> 30) & 3)
+        let valueWidth = Int((head >> 28) & 3)
+        guard keyWidth != 0, valueWidth != 0 else { return }
+        let entryByteStride = (keyWidth &+ valueWidth) &* 4
+        var keyByteOffset = bodyWordOffset &* 4
+        var position = 0
+        while position < entryCount {
+            let key = Key._decodeProtoCache(
+                fromRawWords: bytes.rawBaseAddress.advanced(by: keyByteOffset),
+                availableByteCount: bytes.count - keyByteOffset,
+                width: keyWidth,
+                owner: bytes
+            )!
+            let valueByteOffset = keyByteOffset &+ keyWidth &* 4
+            let value = Value._decodeProtoCache(
+                fromRawWords: bytes.rawBaseAddress.advanced(by: valueByteOffset),
+                availableByteCount: bytes.count - valueByteOffset,
+                width: valueWidth,
+                owner: bytes
+            )!
+            try body(key, value)
+            keyByteOffset &+= entryByteStride
+            position &+= 1
+        }
     }
-
 }
 
-extension MapView where Key == StringView {
-    public subscript(key: String) -> Value? {
+extension MapView where Key == StringView, Value: ~Escapable {
+    public func position(for key: String) -> Int? {
+        let index = PerfectHashView(bytes)
         let position = key.utf8.withContiguousStorageIfAvailable { storage in
             index.locate(UnsafeRawBufferPointer(storage))
         } ?? Array(key.utf8).withUnsafeBytes { index.locate($0) }
-        guard let position, position < count,
-              let stored = decode(StringView.self, position: position, value: false),
-              stored.equalsUTF8(key) else { return nil }
-        return decode(Value.self, position: position, value: true)
+        guard let position, position < count else { return nil }
+        let stored = self.key(at: position)
+        guard stored.equalsUTF8(key) else { return nil }
+        return position
     }
 }
 
 extension BytesView: ProtoCacheDecodable {
+    @_lifetime(copy field)
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(from field: FieldView) -> BytesView? { field.bytes() }
+
+    @_lifetime(copy owner)
+    @inlinable @inline(__always)
     public static func _decodeProtoCache(
         fromRawWords baseAddress: UnsafeRawPointer,
         availableByteCount: Int,
         width: Int,
-        owner: borrowing ProtoCacheBytes
+        owner: borrowing Span
     ) -> BytesView? {
-        StringView._decodeProtoCache(
+        guard let string = StringView._decodeProtoCache(
             fromRawWords: baseAddress,
             availableByteCount: availableByteCount,
             width: width,
             owner: owner
-        ).map(BytesView.init)
+        ) else { return nil }
+        return BytesView(string)
     }
 }

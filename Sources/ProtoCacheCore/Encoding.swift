@@ -178,7 +178,7 @@ public enum _ProtoCacheEncoding {
     }
 
     private static func encodedWordCount(
-        _ bytes: ProtoCacheBytes,
+        _ bytes: Span,
         kind: _ProtoCacheFieldKind,
         depth: Int
     ) throws -> Int {
@@ -209,7 +209,7 @@ public enum _ProtoCacheEncoding {
         }
     }
 
-    private static func stringWordCount(_ bytes: ProtoCacheBytes) throws -> Int {
+    private static func stringWordCount(_ bytes: Span) throws -> Int {
         var mark = 0
         var shift = 0
         var used = 0
@@ -231,7 +231,7 @@ public enum _ProtoCacheEncoding {
     }
 
     private static func messageWordCount(
-        _ bytes: ProtoCacheBytes,
+        _ bytes: Span,
         layout: _ProtoCacheLayout,
         depth: Int
     ) throws -> Int {
@@ -267,7 +267,7 @@ public enum _ProtoCacheEncoding {
     }
 
     private static func arrayWordCount(
-        _ bytes: ProtoCacheBytes,
+        _ bytes: Span,
         element: _ProtoCacheFieldKind,
         depth: Int
     ) throws -> Int {
@@ -285,7 +285,7 @@ public enum _ProtoCacheEncoding {
     }
 
     private static func mapWordCount(
-        _ bytes: ProtoCacheBytes,
+        _ bytes: Span,
         key: _ProtoCacheFieldKind,
         value: _ProtoCacheFieldKind,
         depth: Int
@@ -314,7 +314,7 @@ public enum _ProtoCacheEncoding {
 
     private static func referencedEnd(
         _ field: FieldView,
-        in root: ProtoCacheBytes,
+        in root: Span,
         kind: _ProtoCacheFieldKind,
         depth: Int
     ) throws -> Int {
@@ -326,14 +326,14 @@ public enum _ProtoCacheEncoding {
         }
         let first = field.rawBytes.loadUInt32(wordOffset: 0)
         guard first & 3 == 3 else { return 0 }
-        let cell = (field.tail.byteOffset - root.byteOffset) / 4
+        let cell = root.rawBaseAddress.distance(to: field.tail.rawBaseAddress) / 4
         let object = cell + Int(first >> 2)
         guard object >= 0, object < root.count / 4 else { throw ProtoCacheError.invalidHeader }
         let child = root.wordSlice(offset: object)
         return object + (try encodedWordCount(child, kind: kind, depth: depth + 1))
     }
 
-    public static func embedded(_ source: ProtoCacheBytes, in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
+    public static func embedded(_ source: Span, in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
         guard source.count > 0, source.count % 4 == 0 else { throw ProtoCacheError.invalidHeader }
         let previous = buffer.count
         let wordCount = source.count / 4
@@ -344,6 +344,10 @@ public enum _ProtoCacheEncoding {
             }
         }
         return _ProtoCacheUnit(segment: .init(position: buffer.count, count: buffer.count - previous))
+    }
+
+    public static func embedded(_ source: ProtoCacheBytes, in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
+        try source.withBorrowedSpan { try embedded($0, in: buffer) }
     }
 
     public static func boolArray(_ values: [Bool], in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {

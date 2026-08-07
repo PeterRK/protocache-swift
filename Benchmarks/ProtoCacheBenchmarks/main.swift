@@ -193,22 +193,22 @@ private func traverseProtobuf(_ root: Test_Main, _ junk: inout Junk) {
 }
 
 @inline(__always)
-private func traverseViewSmall(_ root: Test_SmallView, _ junk: inout Junk) {
+private func traverseViewSmall(_ root: borrowing Test_SmallView, _ junk: inout Junk) {
     junk.add(UInt32(bitPattern: root.i32))
     junk.add(UInt32(root.flag ? 1 : 0))
     junk.add(junkHash(root.str))
 }
 
 @inline(__always)
-private func traverseViewArrMap(_ root: Test_ArrMapView, _ junk: inout Junk) {
-    for pair in root {
-        junk.add(junkHash(pair.key))
-        for item in pair.value { junk.add(item) }
+private func traverseViewArrMap(_ root: borrowing Test_ArrMapView, _ junk: inout Junk) {
+    root.forEach { key, value in
+        junk.add(junkHash(key))
+        value.forEach { junk.add($0) }
     }
 }
 
 @inline(__always)
-private func traverseView(_ root: Test_MainView, _ junk: inout Junk) {
+private func traverseView(_ root: borrowing Test_MainView, _ junk: inout Junk) {
     junk.add(UInt32(bitPattern: root.i32))
     junk.add(root.u32)
     junk.add(UInt32(root.flag ? 1 : 0))
@@ -217,41 +217,39 @@ private func traverseView(_ root: Test_MainView, _ junk: inout Junk) {
     junk.add(UInt32(bitPattern: root.tS32))
     junk.add(root.tU32)
 
-    for value in root.i32v { junk.add(UInt32(bitPattern: value)) }
-    for value in root.flags { junk.add(UInt32(value ? 1 : 0)) }
+    root.i32v.forEach { junk.add(UInt32(bitPattern: $0)) }
+    root.flags.forEach { junk.add(UInt32($0 ? 1 : 0)) }
     junk.add(junkHash(root.str))
     junk.add(junkHash(root.data))
-    for value in root.strv { junk.add(junkHash(value)) }
-    for value in root.datav { junk.add(junkHash(value)) }
+    root.strv.forEach { junk.add(junkHash($0)) }
+    root.datav.forEach { junk.add(junkHash($0)) }
 
     junk.add(UInt64(bitPattern: root.i64))
     junk.add(root.u64)
     junk.add(UInt64(bitPattern: root.tI64))
     junk.add(UInt64(bitPattern: root.tS64))
     junk.add(root.tU64)
-    for value in root.u64v { junk.add(value) }
+    root.u64v.forEach { junk.add($0) }
 
     junk.add(root.f32)
-    for value in root.f32v { junk.add(value) }
+    root.f32v.forEach { junk.add($0) }
     junk.add(root.f64)
-    for value in root.f64v { junk.add(value) }
+    root.f64v.forEach { junk.add($0) }
 
     traverseViewSmall(root.object, &junk)
-    for value in root.objectv { traverseViewSmall(value, &junk) }
+    root.objectv.forEach { traverseViewSmall($0, &junk) }
 
-    for pair in root.index {
-        junk.add(junkHash(pair.key))
-        junk.add(UInt32(bitPattern: pair.value))
+    root.index.forEach { key, value in
+        junk.add(junkHash(key))
+        junk.add(UInt32(bitPattern: value))
     }
-    for pair in root.objects {
-        junk.add(UInt32(bitPattern: pair.key))
-        traverseViewSmall(pair.value, &junk)
+    root.objects.forEach { key, value in
+        junk.add(UInt32(bitPattern: key))
+        traverseViewSmall(value, &junk)
     }
 
-    for row in root.matrix {
-        for value in row { junk.add(value) }
-    }
-    for value in root.vector { traverseViewArrMap(value, &junk) }
+    root.matrix.forEach { row in row.forEach { junk.add($0) } }
+    root.vector.forEach { traverseViewArrMap($0, &junk) }
     traverseViewArrMap(root.arrays, &junk)
 }
 
@@ -502,13 +500,12 @@ private func run(_ config: BenchConfig) throws {
     }
 
     var expectedJunk = Junk()
-    traverseView(Test_MainView(protocacheRaw), &expectedJunk)
+    protocacheRaw.withView(Test_MainView.self) { traverseView($0, &expectedJunk) }
     let expectedFuse = expectedJunk.fuse()
 
     func validate(_ name: String, _ bytes: ProtoCacheBytes) throws {
         var junk = Junk()
-        let view = Test_MainView(bytes)
-        traverseView(view, &junk)
+        bytes.withView(Test_MainView.self) { traverseView($0, &junk) }
         guard junk.fuse() == expectedFuse else {
             throw BenchmarkError(
                 "\(name) semantic checksum mismatch: "
@@ -553,7 +550,7 @@ private func run(_ config: BenchConfig) throws {
 
     if config.shouldRun("protocache") {
         benchmarkAccess("protocache", bytes: protocacheRaw.count, loops: config.loops) { junk in
-            traverseView(Test_MainView(protocacheRaw), &junk)
+            protocacheRaw.withView(Test_MainView.self) { traverseView($0, &junk) }
         }
     }
 

@@ -2,69 +2,78 @@
 import ProtoCacheCore
 
 public struct Test_SmallMutable: Sendable {
-    private var _source: Test_SmallView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 4)
     private var _i32: Int32?
     private var _flag: Bool?
     private var _str: String?
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var i32: Int32 {
-        get { _i32 ?? (_source.i32) }
+        get { _i32 ?? (_source.withView(Test_SmallView.self) { source in source.i32 }) }
         set { _i32 = newValue; _accessed.insert(0) }
         _modify {
-            if _i32 == nil { _i32 = _source.i32 }
+            if _i32 == nil { _i32 = _source.withView(Test_SmallView.self) { source in source.i32 } }
             _accessed.insert(0)
             yield &_i32!
         }
     }
     public var flag: Bool {
-        get { _flag ?? (_source.flag) }
+        get { _flag ?? (_source.withView(Test_SmallView.self) { source in source.flag }) }
         set { _flag = newValue; _accessed.insert(1) }
         _modify {
-            if _flag == nil { _flag = _source.flag }
+            if _flag == nil { _flag = _source.withView(Test_SmallView.self) { source in source.flag } }
             _accessed.insert(1)
             yield &_flag!
         }
     }
     public var str: String {
-        get { _str ?? (String(decoding: _source.str, as: UTF8.self)) }
+        get { _str ?? (_source.withView(Test_SmallView.self) { source in source.str.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) } }) }
         set { _str = newValue; _accessed.insert(3) }
         _modify {
-            if _str == nil { _str = String(decoding: _source.str, as: UTF8.self) }
+            if _str == nil { _str = _source.withView(Test_SmallView.self) { source in source.str.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) } } }
             _accessed.insert(3)
             yield &_str!
         }
     }
     public var _isProtoCacheEmpty: Bool {
-        if let value = _i32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(0) { return false }
-        if let value = _flag { if value { return false } } else if _source._protoCacheMessageView.hasField(1) { return false }
-        if let value = _str { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(3) { return false }
+        if let value = _i32 { if value != 0 { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
+        if let value = _flag { if value { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
+        if let value = _str { if !value.isEmpty { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(3) }) { return false }
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 4)
         if _accessed.contains(0) {
             let value = _i32!
             if value != 0 { fields[0] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(0) {
-            fields[0] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[0] = try _source.withView(Test_SmallView.self) { source in
+                guard let original = source._protoCacheMessageView.field(0) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[0], in: buffer)
         if _accessed.contains(1) {
             let value = _flag!
             if value { fields[1] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(1) {
-            fields[1] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.bool), in: buffer)
+        } else {
+            fields[1] = try _source.withView(Test_SmallView.self) { source in
+                guard let original = source._protoCacheMessageView.field(1) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.bool), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[1], in: buffer)
         if _accessed.contains(3) {
             let value = _str!
             if !value.isEmpty { fields[3] = try _ProtoCacheEncoding.string(value, in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(3) {
-            fields[3] = try _ProtoCacheEncoding.copy(original, kind: .string, in: buffer)
+        } else {
+            fields[3] = try _source.withView(Test_SmallView.self) { source in
+                guard let original = source._protoCacheMessageView.field(3) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .string, in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[3], in: buffer)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
@@ -76,21 +85,21 @@ public struct Test_SmallMutable: Sendable {
 }
 
 public struct Test_Vec2D_Vec1DMutable: Sendable {
-    private var _source: Test_Vec2D_Vec1DView?
+    private var _source: ProtoCacheBytes?
     private var _value: [Float]?
     public init() { _source = nil }
     public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
     public var value: [Float] {
-        get { _value ?? (_source.map { $0.map { $0 } } ?? []) }
+        get { _value ?? (_source.map { bytes in bytes.withView(Test_Vec2D_Vec1DView.self) { source in var result: [Float] = []; result.reserveCapacity(source.count); source.forEach { element in result.append(element) }; return result } } ?? []) }
         set { _value = newValue }
         _modify {
-            if _value == nil { _value = _source.map { $0.map { $0 } } ?? [] }
+            if _value == nil { _value = _source.map { bytes in bytes.withView(Test_Vec2D_Vec1DView.self) { source in var result: [Float] = []; result.reserveCapacity(source.count); source.forEach { element in result.append(element) }; return result } } ?? [] }
             yield &_value!
         }
     }
     public var _isProtoCacheEmpty: Bool { value.isEmpty }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source._protoCacheBytes, in: buffer) }
+        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source, in: buffer) }
         let checkpoint = buffer.checkpoint
         let elements = value.map { _ProtoCacheEncoding.scalar($0) }
         return try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
@@ -99,21 +108,21 @@ public struct Test_Vec2D_Vec1DMutable: Sendable {
 }
 
 public struct Test_Vec2DMutable: Sendable {
-    private var _source: Test_Vec2DView?
+    private var _source: ProtoCacheBytes?
     private var _value: [Test_Vec2D_Vec1DMutable]?
     public init() { _source = nil }
     public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
     public var value: [Test_Vec2D_Vec1DMutable] {
-        get { _value ?? (_source.map { $0.map { Test_Vec2D_Vec1DMutable($0._protoCacheBytes) } } ?? []) }
+        get { _value ?? (_source.map { bytes in bytes.withView(Test_Vec2DView.self) { source in var result: [Test_Vec2D_Vec1DMutable] = []; result.reserveCapacity(source.count); source.forEach { element in result.append({ let bytes = bytes.ownedSlice(of: element._protoCacheSpan); return Test_Vec2D_Vec1DMutable(bytes) }()) }; return result } } ?? []) }
         set { _value = newValue }
         _modify {
-            if _value == nil { _value = _source.map { $0.map { Test_Vec2D_Vec1DMutable($0._protoCacheBytes) } } ?? [] }
+            if _value == nil { _value = _source.map { bytes in bytes.withView(Test_Vec2DView.self) { source in var result: [Test_Vec2D_Vec1DMutable] = []; result.reserveCapacity(source.count); source.forEach { element in result.append({ let bytes = bytes.ownedSlice(of: element._protoCacheSpan); return Test_Vec2D_Vec1DMutable(bytes) }()) }; return result } } ?? [] }
             yield &_value!
         }
     }
     public var _isProtoCacheEmpty: Bool { value.isEmpty }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source._protoCacheBytes, in: buffer) }
+        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source, in: buffer) }
         let checkpoint = buffer.checkpoint
         let elements = try value.map { try $0._encodeProtoCache(in: buffer) }
         return try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
@@ -122,21 +131,21 @@ public struct Test_Vec2DMutable: Sendable {
 }
 
 public struct Test_ArrMap_ArrayMutable: Sendable {
-    private var _source: Test_ArrMap_ArrayView?
+    private var _source: ProtoCacheBytes?
     private var _value: [Float]?
     public init() { _source = nil }
     public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
     public var value: [Float] {
-        get { _value ?? (_source.map { $0.map { $0 } } ?? []) }
+        get { _value ?? (_source.map { bytes in bytes.withView(Test_ArrMap_ArrayView.self) { source in var result: [Float] = []; result.reserveCapacity(source.count); source.forEach { element in result.append(element) }; return result } } ?? []) }
         set { _value = newValue }
         _modify {
-            if _value == nil { _value = _source.map { $0.map { $0 } } ?? [] }
+            if _value == nil { _value = _source.map { bytes in bytes.withView(Test_ArrMap_ArrayView.self) { source in var result: [Float] = []; result.reserveCapacity(source.count); source.forEach { element in result.append(element) }; return result } } ?? [] }
             yield &_value!
         }
     }
     public var _isProtoCacheEmpty: Bool { value.isEmpty }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source._protoCacheBytes, in: buffer) }
+        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source, in: buffer) }
         let checkpoint = buffer.checkpoint
         let elements = value.map { _ProtoCacheEncoding.scalar($0) }
         return try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
@@ -145,21 +154,21 @@ public struct Test_ArrMap_ArrayMutable: Sendable {
 }
 
 public struct Test_ArrMapMutable: Sendable {
-    private var _source: Test_ArrMapView?
+    private var _source: ProtoCacheBytes?
     private var _value: [String: Test_ArrMap_ArrayMutable]?
     public init() { _source = nil }
     public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
     public var value: [String: Test_ArrMap_ArrayMutable] {
-        get { _value ?? (_source.map { Dictionary(uniqueKeysWithValues: $0.map { (String(decoding: $0.key, as: UTF8.self), Test_ArrMap_ArrayMutable($0.value._protoCacheBytes)) }) } ?? [:]) }
+        get { _value ?? (_source.map { bytes in bytes.withView(Test_ArrMapView.self) { source in var result: [String: Test_ArrMap_ArrayMutable] = [:]; result.reserveCapacity(source.count); source.forEach { key, value in result[key.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }] = { let bytes = bytes.ownedSlice(of: value._protoCacheSpan); return Test_ArrMap_ArrayMutable(bytes) }() }; return result } } ?? [:]) }
         set { _value = newValue }
         _modify {
-            if _value == nil { _value = _source.map { Dictionary(uniqueKeysWithValues: $0.map { (String(decoding: $0.key, as: UTF8.self), Test_ArrMap_ArrayMutable($0.value._protoCacheBytes)) }) } ?? [:] }
+            if _value == nil { _value = _source.map { bytes in bytes.withView(Test_ArrMapView.self) { source in var result: [String: Test_ArrMap_ArrayMutable] = [:]; result.reserveCapacity(source.count); source.forEach { key, value in result[key.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }] = { let bytes = bytes.ownedSlice(of: value._protoCacheSpan); return Test_ArrMap_ArrayMutable(bytes) }() }; return result } } ?? [:] }
             yield &_value!
         }
     }
     public var _isProtoCacheEmpty: Bool { value.isEmpty }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source._protoCacheBytes, in: buffer) }
+        if _value == nil, let source = _source { return try _ProtoCacheEncoding.embedded(source, in: buffer) }
         let entries = value.map { (bytes: $0.key._protoCacheKeyBytes, key: $0.key, value: $0.value) }.sorted { $0.bytes.lexicographicallyPrecedes($1.bytes) }
         let checkpoint = buffer.checkpoint
         let keys = try entries.map { try _ProtoCacheEncoding.string($0.key, in: buffer) }
@@ -170,7 +179,7 @@ public struct Test_ArrMapMutable: Sendable {
 }
 
 public struct Test_MainMutable: Sendable {
-    private var _source: Test_MainView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 32)
     private var _i32: Int32?
     private var _u32: UInt32?
@@ -203,103 +212,103 @@ public struct Test_MainMutable: Sendable {
     private var _vector: [Test_ArrMapMutable]?
     private var _arrays: _ProtoCacheBox<Test_ArrMapMutable>?
     private var _modev: [Test_ModeValue]?
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var i32: Int32 {
-        get { _i32 ?? (_source.i32) }
+        get { _i32 ?? (_source.withView(Test_MainView.self) { source in source.i32 }) }
         set { _i32 = newValue; _accessed.insert(0) }
         _modify {
-            if _i32 == nil { _i32 = _source.i32 }
+            if _i32 == nil { _i32 = _source.withView(Test_MainView.self) { source in source.i32 } }
             _accessed.insert(0)
             yield &_i32!
         }
     }
     public var u32: UInt32 {
-        get { _u32 ?? (_source.u32) }
+        get { _u32 ?? (_source.withView(Test_MainView.self) { source in source.u32 }) }
         set { _u32 = newValue; _accessed.insert(1) }
         _modify {
-            if _u32 == nil { _u32 = _source.u32 }
+            if _u32 == nil { _u32 = _source.withView(Test_MainView.self) { source in source.u32 } }
             _accessed.insert(1)
             yield &_u32!
         }
     }
     public var i64: Int64 {
-        get { _i64 ?? (_source.i64) }
+        get { _i64 ?? (_source.withView(Test_MainView.self) { source in source.i64 }) }
         set { _i64 = newValue; _accessed.insert(2) }
         _modify {
-            if _i64 == nil { _i64 = _source.i64 }
+            if _i64 == nil { _i64 = _source.withView(Test_MainView.self) { source in source.i64 } }
             _accessed.insert(2)
             yield &_i64!
         }
     }
     public var u64: UInt64 {
-        get { _u64 ?? (_source.u64) }
+        get { _u64 ?? (_source.withView(Test_MainView.self) { source in source.u64 }) }
         set { _u64 = newValue; _accessed.insert(3) }
         _modify {
-            if _u64 == nil { _u64 = _source.u64 }
+            if _u64 == nil { _u64 = _source.withView(Test_MainView.self) { source in source.u64 } }
             _accessed.insert(3)
             yield &_u64!
         }
     }
     public var flag: Bool {
-        get { _flag ?? (_source.flag) }
+        get { _flag ?? (_source.withView(Test_MainView.self) { source in source.flag }) }
         set { _flag = newValue; _accessed.insert(4) }
         _modify {
-            if _flag == nil { _flag = _source.flag }
+            if _flag == nil { _flag = _source.withView(Test_MainView.self) { source in source.flag } }
             _accessed.insert(4)
             yield &_flag!
         }
     }
     public var mode: Test_ModeValue {
-        get { _mode ?? (_source.mode) }
+        get { _mode ?? (_source.withView(Test_MainView.self) { source in source.mode }) }
         set { _mode = newValue; _accessed.insert(5) }
         _modify {
-            if _mode == nil { _mode = _source.mode }
+            if _mode == nil { _mode = _source.withView(Test_MainView.self) { source in source.mode } }
             _accessed.insert(5)
             yield &_mode!
         }
     }
     public var str: String {
-        get { _str ?? (String(decoding: _source.str, as: UTF8.self)) }
+        get { _str ?? (_source.withView(Test_MainView.self) { source in source.str.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) } }) }
         set { _str = newValue; _accessed.insert(6) }
         _modify {
-            if _str == nil { _str = String(decoding: _source.str, as: UTF8.self) }
+            if _str == nil { _str = _source.withView(Test_MainView.self) { source in source.str.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) } } }
             _accessed.insert(6)
             yield &_str!
         }
     }
     public var data: [UInt8] {
-        get { _data ?? (Array(_source.data)) }
+        get { _data ?? (_source.withView(Test_MainView.self) { source in source.data.withUnsafeBytes { Array($0) } }) }
         set { _data = newValue; _accessed.insert(7) }
         _modify {
-            if _data == nil { _data = Array(_source.data) }
+            if _data == nil { _data = _source.withView(Test_MainView.self) { source in source.data.withUnsafeBytes { Array($0) } } }
             _accessed.insert(7)
             yield &_data!
         }
     }
     public var f32: Float {
-        get { _f32 ?? (_source.f32) }
+        get { _f32 ?? (_source.withView(Test_MainView.self) { source in source.f32 }) }
         set { _f32 = newValue; _accessed.insert(8) }
         _modify {
-            if _f32 == nil { _f32 = _source.f32 }
+            if _f32 == nil { _f32 = _source.withView(Test_MainView.self) { source in source.f32 } }
             _accessed.insert(8)
             yield &_f32!
         }
     }
     public var f64: Double {
-        get { _f64 ?? (_source.f64) }
+        get { _f64 ?? (_source.withView(Test_MainView.self) { source in source.f64 }) }
         set { _f64 = newValue; _accessed.insert(9) }
         _modify {
-            if _f64 == nil { _f64 = _source.f64 }
+            if _f64 == nil { _f64 = _source.withView(Test_MainView.self) { source in source.f64 } }
             _accessed.insert(9)
             yield &_f64!
         }
     }
     public var object: Test_SmallMutable {
-        get { _object?.value ?? (Test_SmallMutable(_source.object._protoCacheBytes)) }
+        get { _object?.value ?? ({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.object; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_SmallMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
         set { _object = _ProtoCacheBox(newValue); _accessed.insert(10) }
         _modify {
-            if _object == nil { _object = _ProtoCacheBox(Test_SmallMutable(_source.object._protoCacheBytes)) }
+            if _object == nil { _object = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.object; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_SmallMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
             var box = _object!
             _protoCacheEnsureUnique(&box)
             _object = box
@@ -308,154 +317,154 @@ public struct Test_MainMutable: Sendable {
         }
     }
     public var i32v: [Int32] {
-        get { _i32v ?? (_source.i32v.map { $0 }) }
+        get { _i32v ?? (_source.withView(Test_MainView.self) { source in var result: [Int32] = []; result.reserveCapacity(source.i32v.count); source.i32v.forEach { element in result.append(element) }; return result }) }
         set { _i32v = newValue; _accessed.insert(11) }
         _modify {
-            if _i32v == nil { _i32v = _source.i32v.map { $0 } }
+            if _i32v == nil { _i32v = _source.withView(Test_MainView.self) { source in var result: [Int32] = []; result.reserveCapacity(source.i32v.count); source.i32v.forEach { element in result.append(element) }; return result } }
             _accessed.insert(11)
             yield &_i32v!
         }
     }
     public var u64v: [UInt64] {
-        get { _u64v ?? (_source.u64v.map { $0 }) }
+        get { _u64v ?? (_source.withView(Test_MainView.self) { source in var result: [UInt64] = []; result.reserveCapacity(source.u64v.count); source.u64v.forEach { element in result.append(element) }; return result }) }
         set { _u64v = newValue; _accessed.insert(12) }
         _modify {
-            if _u64v == nil { _u64v = _source.u64v.map { $0 } }
+            if _u64v == nil { _u64v = _source.withView(Test_MainView.self) { source in var result: [UInt64] = []; result.reserveCapacity(source.u64v.count); source.u64v.forEach { element in result.append(element) }; return result } }
             _accessed.insert(12)
             yield &_u64v!
         }
     }
     public var strv: [String] {
-        get { _strv ?? (_source.strv.map { String(decoding: $0, as: UTF8.self) }) }
+        get { _strv ?? (_source.withView(Test_MainView.self) { source in var result: [String] = []; result.reserveCapacity(source.strv.count); source.strv.forEach { element in result.append(element.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }) }; return result }) }
         set { _strv = newValue; _accessed.insert(13) }
         _modify {
-            if _strv == nil { _strv = _source.strv.map { String(decoding: $0, as: UTF8.self) } }
+            if _strv == nil { _strv = _source.withView(Test_MainView.self) { source in var result: [String] = []; result.reserveCapacity(source.strv.count); source.strv.forEach { element in result.append(element.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }) }; return result } }
             _accessed.insert(13)
             yield &_strv!
         }
     }
     public var datav: [[UInt8]] {
-        get { _datav ?? (_source.datav.map { Array($0) }) }
+        get { _datav ?? (_source.withView(Test_MainView.self) { source in var result: [[UInt8]] = []; result.reserveCapacity(source.datav.count); source.datav.forEach { element in result.append(element.withUnsafeBytes { Array($0) }) }; return result }) }
         set { _datav = newValue; _accessed.insert(14) }
         _modify {
-            if _datav == nil { _datav = _source.datav.map { Array($0) } }
+            if _datav == nil { _datav = _source.withView(Test_MainView.self) { source in var result: [[UInt8]] = []; result.reserveCapacity(source.datav.count); source.datav.forEach { element in result.append(element.withUnsafeBytes { Array($0) }) }; return result } }
             _accessed.insert(14)
             yield &_datav!
         }
     }
     public var f32v: [Float] {
-        get { _f32v ?? (_source.f32v.map { $0 }) }
+        get { _f32v ?? (_source.withView(Test_MainView.self) { source in var result: [Float] = []; result.reserveCapacity(source.f32v.count); source.f32v.forEach { element in result.append(element) }; return result }) }
         set { _f32v = newValue; _accessed.insert(15) }
         _modify {
-            if _f32v == nil { _f32v = _source.f32v.map { $0 } }
+            if _f32v == nil { _f32v = _source.withView(Test_MainView.self) { source in var result: [Float] = []; result.reserveCapacity(source.f32v.count); source.f32v.forEach { element in result.append(element) }; return result } }
             _accessed.insert(15)
             yield &_f32v!
         }
     }
     public var f64v: [Double] {
-        get { _f64v ?? (_source.f64v.map { $0 }) }
+        get { _f64v ?? (_source.withView(Test_MainView.self) { source in var result: [Double] = []; result.reserveCapacity(source.f64v.count); source.f64v.forEach { element in result.append(element) }; return result }) }
         set { _f64v = newValue; _accessed.insert(16) }
         _modify {
-            if _f64v == nil { _f64v = _source.f64v.map { $0 } }
+            if _f64v == nil { _f64v = _source.withView(Test_MainView.self) { source in var result: [Double] = []; result.reserveCapacity(source.f64v.count); source.f64v.forEach { element in result.append(element) }; return result } }
             _accessed.insert(16)
             yield &_f64v!
         }
     }
     public var flags: [Bool] {
-        get { _flags ?? (_source.flags.map { $0 }) }
+        get { _flags ?? (_source.withView(Test_MainView.self) { source in var result: [Bool] = []; result.reserveCapacity(source.flags.count); source.flags.forEach { element in result.append(element) }; return result }) }
         set { _flags = newValue; _accessed.insert(17) }
         _modify {
-            if _flags == nil { _flags = _source.flags.map { $0 } }
+            if _flags == nil { _flags = _source.withView(Test_MainView.self) { source in var result: [Bool] = []; result.reserveCapacity(source.flags.count); source.flags.forEach { element in result.append(element) }; return result } }
             _accessed.insert(17)
             yield &_flags!
         }
     }
     public var objectv: [Test_SmallMutable] {
-        get { _objectv ?? (_source.objectv.map { Test_SmallMutable($0._protoCacheBytes) }) }
+        get { _objectv ?? (_source.withView(Test_MainView.self) { source in var result: [Test_SmallMutable] = []; result.reserveCapacity(source.objectv.count); source.objectv.forEach { element in result.append({ let bytes = _source.ownedSlice(of: element._protoCacheSpan); return Test_SmallMutable(bytes) }()) }; return result }) }
         set { _objectv = newValue; _accessed.insert(18) }
         _modify {
-            if _objectv == nil { _objectv = _source.objectv.map { Test_SmallMutable($0._protoCacheBytes) } }
+            if _objectv == nil { _objectv = _source.withView(Test_MainView.self) { source in var result: [Test_SmallMutable] = []; result.reserveCapacity(source.objectv.count); source.objectv.forEach { element in result.append({ let bytes = _source.ownedSlice(of: element._protoCacheSpan); return Test_SmallMutable(bytes) }()) }; return result } }
             _accessed.insert(18)
             yield &_objectv!
         }
     }
     public var tU32: UInt32 {
-        get { _tU32 ?? (_source.tU32) }
+        get { _tU32 ?? (_source.withView(Test_MainView.self) { source in source.tU32 }) }
         set { _tU32 = newValue; _accessed.insert(19) }
         _modify {
-            if _tU32 == nil { _tU32 = _source.tU32 }
+            if _tU32 == nil { _tU32 = _source.withView(Test_MainView.self) { source in source.tU32 } }
             _accessed.insert(19)
             yield &_tU32!
         }
     }
     public var tI32: Int32 {
-        get { _tI32 ?? (_source.tI32) }
+        get { _tI32 ?? (_source.withView(Test_MainView.self) { source in source.tI32 }) }
         set { _tI32 = newValue; _accessed.insert(20) }
         _modify {
-            if _tI32 == nil { _tI32 = _source.tI32 }
+            if _tI32 == nil { _tI32 = _source.withView(Test_MainView.self) { source in source.tI32 } }
             _accessed.insert(20)
             yield &_tI32!
         }
     }
     public var tS32: Int32 {
-        get { _tS32 ?? (_source.tS32) }
+        get { _tS32 ?? (_source.withView(Test_MainView.self) { source in source.tS32 }) }
         set { _tS32 = newValue; _accessed.insert(21) }
         _modify {
-            if _tS32 == nil { _tS32 = _source.tS32 }
+            if _tS32 == nil { _tS32 = _source.withView(Test_MainView.self) { source in source.tS32 } }
             _accessed.insert(21)
             yield &_tS32!
         }
     }
     public var tU64: UInt64 {
-        get { _tU64 ?? (_source.tU64) }
+        get { _tU64 ?? (_source.withView(Test_MainView.self) { source in source.tU64 }) }
         set { _tU64 = newValue; _accessed.insert(22) }
         _modify {
-            if _tU64 == nil { _tU64 = _source.tU64 }
+            if _tU64 == nil { _tU64 = _source.withView(Test_MainView.self) { source in source.tU64 } }
             _accessed.insert(22)
             yield &_tU64!
         }
     }
     public var tI64: Int64 {
-        get { _tI64 ?? (_source.tI64) }
+        get { _tI64 ?? (_source.withView(Test_MainView.self) { source in source.tI64 }) }
         set { _tI64 = newValue; _accessed.insert(23) }
         _modify {
-            if _tI64 == nil { _tI64 = _source.tI64 }
+            if _tI64 == nil { _tI64 = _source.withView(Test_MainView.self) { source in source.tI64 } }
             _accessed.insert(23)
             yield &_tI64!
         }
     }
     public var tS64: Int64 {
-        get { _tS64 ?? (_source.tS64) }
+        get { _tS64 ?? (_source.withView(Test_MainView.self) { source in source.tS64 }) }
         set { _tS64 = newValue; _accessed.insert(24) }
         _modify {
-            if _tS64 == nil { _tS64 = _source.tS64 }
+            if _tS64 == nil { _tS64 = _source.withView(Test_MainView.self) { source in source.tS64 } }
             _accessed.insert(24)
             yield &_tS64!
         }
     }
     public var index: [String: Int32] {
-        get { _index ?? (Dictionary(uniqueKeysWithValues: _source.index.map { (String(decoding: $0.key, as: UTF8.self), $0.value) })) }
+        get { _index ?? (_source.withView(Test_MainView.self) { source in var result: [String: Int32] = [:]; result.reserveCapacity(source.index.count); source.index.forEach { key, value in result[key.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }] = value }; return result }) }
         set { _index = newValue; _accessed.insert(25) }
         _modify {
-            if _index == nil { _index = Dictionary(uniqueKeysWithValues: _source.index.map { (String(decoding: $0.key, as: UTF8.self), $0.value) }) }
+            if _index == nil { _index = _source.withView(Test_MainView.self) { source in var result: [String: Int32] = [:]; result.reserveCapacity(source.index.count); source.index.forEach { key, value in result[key.withUnsafeUTF8 { String(decoding: $0, as: UTF8.self) }] = value }; return result } }
             _accessed.insert(25)
             yield &_index!
         }
     }
     public var objects: [Int32: Test_SmallMutable] {
-        get { _objects ?? (Dictionary(uniqueKeysWithValues: _source.objects.map { ($0.key, Test_SmallMutable($0.value._protoCacheBytes)) })) }
+        get { _objects ?? (_source.withView(Test_MainView.self) { source in var result: [Int32: Test_SmallMutable] = [:]; result.reserveCapacity(source.objects.count); source.objects.forEach { key, value in result[key] = { let bytes = _source.ownedSlice(of: value._protoCacheSpan); return Test_SmallMutable(bytes) }() }; return result }) }
         set { _objects = newValue; _accessed.insert(26) }
         _modify {
-            if _objects == nil { _objects = Dictionary(uniqueKeysWithValues: _source.objects.map { ($0.key, Test_SmallMutable($0.value._protoCacheBytes)) }) }
+            if _objects == nil { _objects = _source.withView(Test_MainView.self) { source in var result: [Int32: Test_SmallMutable] = [:]; result.reserveCapacity(source.objects.count); source.objects.forEach { key, value in result[key] = { let bytes = _source.ownedSlice(of: value._protoCacheSpan); return Test_SmallMutable(bytes) }() }; return result } }
             _accessed.insert(26)
             yield &_objects!
         }
     }
     public var matrix: Test_Vec2DMutable {
-        get { _matrix?.value ?? (Test_Vec2DMutable(_source.matrix._protoCacheBytes)) }
+        get { _matrix?.value ?? ({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.matrix; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_Vec2DMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
         set { _matrix = _ProtoCacheBox(newValue); _accessed.insert(27) }
         _modify {
-            if _matrix == nil { _matrix = _ProtoCacheBox(Test_Vec2DMutable(_source.matrix._protoCacheBytes)) }
+            if _matrix == nil { _matrix = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.matrix; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_Vec2DMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
             var box = _matrix!
             _protoCacheEnsureUnique(&box)
             _matrix = box
@@ -464,19 +473,19 @@ public struct Test_MainMutable: Sendable {
         }
     }
     public var vector: [Test_ArrMapMutable] {
-        get { _vector ?? (_source.vector.map { Test_ArrMapMutable($0._protoCacheBytes) }) }
+        get { _vector ?? (_source.withView(Test_MainView.self) { source in var result: [Test_ArrMapMutable] = []; result.reserveCapacity(source.vector.count); source.vector.forEach { element in result.append({ let bytes = _source.ownedSlice(of: element._protoCacheSpan); return Test_ArrMapMutable(bytes) }()) }; return result }) }
         set { _vector = newValue; _accessed.insert(28) }
         _modify {
-            if _vector == nil { _vector = _source.vector.map { Test_ArrMapMutable($0._protoCacheBytes) } }
+            if _vector == nil { _vector = _source.withView(Test_MainView.self) { source in var result: [Test_ArrMapMutable] = []; result.reserveCapacity(source.vector.count); source.vector.forEach { element in result.append({ let bytes = _source.ownedSlice(of: element._protoCacheSpan); return Test_ArrMapMutable(bytes) }()) }; return result } }
             _accessed.insert(28)
             yield &_vector!
         }
     }
     public var arrays: Test_ArrMapMutable {
-        get { _arrays?.value ?? (Test_ArrMapMutable(_source.arrays._protoCacheBytes)) }
+        get { _arrays?.value ?? ({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.arrays; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_ArrMapMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
         set { _arrays = _ProtoCacheBox(newValue); _accessed.insert(29) }
         _modify {
-            if _arrays == nil { _arrays = _ProtoCacheBox(Test_ArrMapMutable(_source.arrays._protoCacheBytes)) }
+            if _arrays == nil { _arrays = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_MainView.self) { source in let root = source._protoCacheSpan; let nested = source.arrays; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_ArrMapMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
             var box = _arrays!
             _protoCacheEnsureUnique(&box)
             _arrays = box
@@ -485,127 +494,160 @@ public struct Test_MainMutable: Sendable {
         }
     }
     public var modev: [Test_ModeValue] {
-        get { _modev ?? (_source.modev.map { $0 }) }
+        get { _modev ?? (_source.withView(Test_MainView.self) { source in var result: [Test_ModeValue] = []; result.reserveCapacity(source.modev.count); source.modev.forEach { element in result.append(element) }; return result }) }
         set { _modev = newValue; _accessed.insert(31) }
         _modify {
-            if _modev == nil { _modev = _source.modev.map { $0 } }
+            if _modev == nil { _modev = _source.withView(Test_MainView.self) { source in var result: [Test_ModeValue] = []; result.reserveCapacity(source.modev.count); source.modev.forEach { element in result.append(element) }; return result } }
             _accessed.insert(31)
             yield &_modev!
         }
     }
     public var _isProtoCacheEmpty: Bool {
-        if let value = _i32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(0) { return false }
-        if let value = _u32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(1) { return false }
-        if let value = _i64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(2) { return false }
-        if let value = _u64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(3) { return false }
-        if let value = _flag { if value { return false } } else if _source._protoCacheMessageView.hasField(4) { return false }
-        if let value = _mode { if value.rawValue != 0 { return false } } else if _source._protoCacheMessageView.hasField(5) { return false }
-        if let value = _str { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(6) { return false }
-        if let value = _data { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(7) { return false }
-        if let value = _f32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(8) { return false }
-        if let value = _f64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(9) { return false }
-        if let value = _object { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(10) { return false }
-        if let value = _i32v { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(11) { return false }
-        if let value = _u64v { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(12) { return false }
-        if let value = _strv { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(13) { return false }
-        if let value = _datav { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(14) { return false }
-        if let value = _f32v { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(15) { return false }
-        if let value = _f64v { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(16) { return false }
-        if let value = _flags { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(17) { return false }
-        if let value = _objectv { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(18) { return false }
-        if let value = _tU32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(19) { return false }
-        if let value = _tI32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(20) { return false }
-        if let value = _tS32 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(21) { return false }
-        if let value = _tU64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(22) { return false }
-        if let value = _tI64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(23) { return false }
-        if let value = _tS64 { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(24) { return false }
-        if let value = _index { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(25) { return false }
-        if let value = _objects { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(26) { return false }
-        if let value = _matrix { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(27) { return false }
-        if let value = _vector { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(28) { return false }
-        if let value = _arrays { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(29) { return false }
-        if let value = _modev { if !value.isEmpty { return false } } else if _source._protoCacheMessageView.hasField(31) { return false }
+        if let value = _i32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
+        if let value = _u32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
+        if let value = _i64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(2) }) { return false }
+        if let value = _u64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(3) }) { return false }
+        if let value = _flag { if value { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(4) }) { return false }
+        if let value = _mode { if value.rawValue != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(5) }) { return false }
+        if let value = _str { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(6) }) { return false }
+        if let value = _data { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(7) }) { return false }
+        if let value = _f32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(8) }) { return false }
+        if let value = _f64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(9) }) { return false }
+        if let value = _object { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(10) }) { return false }
+        if let value = _i32v { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(11) }) { return false }
+        if let value = _u64v { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(12) }) { return false }
+        if let value = _strv { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(13) }) { return false }
+        if let value = _datav { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(14) }) { return false }
+        if let value = _f32v { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(15) }) { return false }
+        if let value = _f64v { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(16) }) { return false }
+        if let value = _flags { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(17) }) { return false }
+        if let value = _objectv { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(18) }) { return false }
+        if let value = _tU32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(19) }) { return false }
+        if let value = _tI32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(20) }) { return false }
+        if let value = _tS32 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(21) }) { return false }
+        if let value = _tU64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(22) }) { return false }
+        if let value = _tI64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(23) }) { return false }
+        if let value = _tS64 { if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(24) }) { return false }
+        if let value = _index { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(25) }) { return false }
+        if let value = _objects { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(26) }) { return false }
+        if let value = _matrix { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(27) }) { return false }
+        if let value = _vector { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(28) }) { return false }
+        if let value = _arrays { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(29) }) { return false }
+        if let value = _modev { if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(31) }) { return false }
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 32)
         if _accessed.contains(0) {
             let value = _i32!
             if value != 0 { fields[0] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(0) {
-            fields[0] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[0] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(0) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[0], in: buffer)
         if _accessed.contains(1) {
             let value = _u32!
             if value != 0 { fields[1] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(1) {
-            fields[1] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint32), in: buffer)
+        } else {
+            fields[1] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(1) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[1], in: buffer)
         if _accessed.contains(2) {
             let value = _i64!
             if value != 0 { fields[2] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(2) {
-            fields[2] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+        } else {
+            fields[2] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(2) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[2], in: buffer)
         if _accessed.contains(3) {
             let value = _u64!
             if value != 0 { fields[3] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(3) {
-            fields[3] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint64), in: buffer)
+        } else {
+            fields[3] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(3) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint64), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[3], in: buffer)
         if _accessed.contains(4) {
             let value = _flag!
             if value { fields[4] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(4) {
-            fields[4] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.bool), in: buffer)
+        } else {
+            fields[4] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(4) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.bool), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[4], in: buffer)
         if _accessed.contains(5) {
             let value = _mode!
             if value.rawValue != 0 { fields[5] = _ProtoCacheEncoding.scalar(value.rawValue) }
-        } else if let original = _source._protoCacheMessageView.field(5) {
-            fields[5] = try _ProtoCacheEncoding.copy(original, kind: .enumeration, in: buffer)
+        } else {
+            fields[5] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(5) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .enumeration, in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[5], in: buffer)
         if _accessed.contains(6) {
             let value = _str!
             if !value.isEmpty { fields[6] = try _ProtoCacheEncoding.string(value, in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(6) {
-            fields[6] = try _ProtoCacheEncoding.copy(original, kind: .string, in: buffer)
+        } else {
+            fields[6] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(6) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .string, in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[6], in: buffer)
         if _accessed.contains(7) {
             let value = _data!
             if !value.isEmpty { fields[7] = try _ProtoCacheEncoding.byteArray(value, in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(7) {
-            fields[7] = try _ProtoCacheEncoding.copy(original, kind: .bytes, in: buffer)
+        } else {
+            fields[7] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(7) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .bytes, in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[7], in: buffer)
         if _accessed.contains(8) {
             let value = _f32!
             if value != 0 { fields[8] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(8) {
-            fields[8] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.float), in: buffer)
+        } else {
+            fields[8] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(8) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.float), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[8], in: buffer)
         if _accessed.contains(9) {
             let value = _f64!
             if value != 0 { fields[9] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(9) {
-            fields[9] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.double), in: buffer)
+        } else {
+            fields[9] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(9) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.double), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[9], in: buffer)
         if _accessed.contains(10) {
             let value = _object!.value
             if !value._isProtoCacheEmpty { fields[10] = try value._encodeProtoCache(in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(10) {
-            fields[10] = try _ProtoCacheEncoding.copy(original, kind: .message({ Test_SmallView._protoCacheLayout }), in: buffer)
+        } else {
+            fields[10] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(10) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .message({ Test_SmallView._protoCacheLayout }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[10], in: buffer)
         if _accessed.contains(11) {
@@ -615,8 +657,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = value.map { _ProtoCacheEncoding.scalar($0) }
                 fields[11] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(11) {
-            fields[11] = try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.int32) }), in: buffer)
+        } else {
+            fields[11] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(11) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.int32) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[11], in: buffer)
         if _accessed.contains(12) {
@@ -626,8 +671,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = value.map { _ProtoCacheEncoding.scalar($0) }
                 fields[12] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(12) {
-            fields[12] = try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.uint64) }), in: buffer)
+        } else {
+            fields[12] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(12) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.uint64) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[12], in: buffer)
         if _accessed.contains(13) {
@@ -637,8 +685,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = try value.map { try _ProtoCacheEncoding.string($0, in: buffer) }
                 fields[13] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(13) {
-            fields[13] = try _ProtoCacheEncoding.copy(original, kind: .array({ .string }), in: buffer)
+        } else {
+            fields[13] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(13) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .string }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[13], in: buffer)
         if _accessed.contains(14) {
@@ -648,8 +699,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = try value.map { try _ProtoCacheEncoding.byteArray($0, in: buffer) }
                 fields[14] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(14) {
-            fields[14] = try _ProtoCacheEncoding.copy(original, kind: .array({ .bytes }), in: buffer)
+        } else {
+            fields[14] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(14) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .bytes }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[14], in: buffer)
         if _accessed.contains(15) {
@@ -659,8 +713,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = value.map { _ProtoCacheEncoding.scalar($0) }
                 fields[15] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(15) {
-            fields[15] = try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.float) }), in: buffer)
+        } else {
+            fields[15] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(15) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.float) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[15], in: buffer)
         if _accessed.contains(16) {
@@ -670,8 +727,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = value.map { _ProtoCacheEncoding.scalar($0) }
                 fields[16] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(16) {
-            fields[16] = try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.double) }), in: buffer)
+        } else {
+            fields[16] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(16) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.double) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[16], in: buffer)
         if _accessed.contains(17) {
@@ -679,8 +739,11 @@ public struct Test_MainMutable: Sendable {
             if !value.isEmpty {
                 fields[17] = try _ProtoCacheEncoding.boolArray(value, in: buffer)
             }
-        } else if let original = _source._protoCacheMessageView.field(17) {
-            fields[17] = try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.bool) }), in: buffer)
+        } else {
+            fields[17] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(17) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .scalar(.bool) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[17], in: buffer)
         if _accessed.contains(18) {
@@ -690,50 +753,71 @@ public struct Test_MainMutable: Sendable {
                 let elements = try value.map { try $0._encodeProtoCache(in: buffer) }
                 fields[18] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(18) {
-            fields[18] = try _ProtoCacheEncoding.copy(original, kind: .array({ .message({ Test_SmallView._protoCacheLayout }) }), in: buffer)
+        } else {
+            fields[18] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(18) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .message({ Test_SmallView._protoCacheLayout }) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[18], in: buffer)
         if _accessed.contains(19) {
             let value = _tU32!
             if value != 0 { fields[19] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(19) {
-            fields[19] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint32), in: buffer)
+        } else {
+            fields[19] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(19) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[19], in: buffer)
         if _accessed.contains(20) {
             let value = _tI32!
             if value != 0 { fields[20] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(20) {
-            fields[20] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[20] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(20) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[20], in: buffer)
         if _accessed.contains(21) {
             let value = _tS32!
             if value != 0 { fields[21] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(21) {
-            fields[21] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[21] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(21) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[21], in: buffer)
         if _accessed.contains(22) {
             let value = _tU64!
             if value != 0 { fields[22] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(22) {
-            fields[22] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint64), in: buffer)
+        } else {
+            fields[22] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(22) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.uint64), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[22], in: buffer)
         if _accessed.contains(23) {
             let value = _tI64!
             if value != 0 { fields[23] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(23) {
-            fields[23] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+        } else {
+            fields[23] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(23) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[23], in: buffer)
         if _accessed.contains(24) {
             let value = _tS64!
             if value != 0 { fields[24] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(24) {
-            fields[24] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+        } else {
+            fields[24] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(24) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int64), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[24], in: buffer)
         if _accessed.contains(25) {
@@ -745,8 +829,11 @@ public struct Test_MainMutable: Sendable {
                 let values = entries.map { _ProtoCacheEncoding.scalar($0.value) }
                 fields[25] = try _ProtoCacheEncoding.map(keys: entries.map { $0.bytes }, keyUnits: keys, valueUnits: values, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(25) {
-            fields[25] = try _ProtoCacheEncoding.copy(original, kind: .map(key: { .string }, value: { .scalar(.int32) }), in: buffer)
+        } else {
+            fields[25] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(25) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .map(key: { .string }, value: { .scalar(.int32) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[25], in: buffer)
         if _accessed.contains(26) {
@@ -758,15 +845,21 @@ public struct Test_MainMutable: Sendable {
                 let values = try entries.map { try $0.value._encodeProtoCache(in: buffer) }
                 fields[26] = try _ProtoCacheEncoding.map(keys: entries.map { $0.bytes }, keyUnits: keys, valueUnits: values, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(26) {
-            fields[26] = try _ProtoCacheEncoding.copy(original, kind: .map(key: { .scalar(.int32) }, value: { .message({ Test_SmallView._protoCacheLayout }) }), in: buffer)
+        } else {
+            fields[26] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(26) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .map(key: { .scalar(.int32) }, value: { .message({ Test_SmallView._protoCacheLayout }) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[26], in: buffer)
         if _accessed.contains(27) {
             let value = _matrix!.value
             if !value._isProtoCacheEmpty { fields[27] = try value._encodeProtoCache(in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(27) {
-            fields[27] = try _ProtoCacheEncoding.copy(original, kind: .message({ Test_Vec2DView._protoCacheLayout }), in: buffer)
+        } else {
+            fields[27] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(27) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .message({ Test_Vec2DView._protoCacheLayout }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[27], in: buffer)
         if _accessed.contains(28) {
@@ -776,15 +869,21 @@ public struct Test_MainMutable: Sendable {
                 let elements = try value.map { try $0._encodeProtoCache(in: buffer) }
                 fields[28] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(28) {
-            fields[28] = try _ProtoCacheEncoding.copy(original, kind: .array({ .message({ Test_ArrMapView._protoCacheLayout }) }), in: buffer)
+        } else {
+            fields[28] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(28) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .message({ Test_ArrMapView._protoCacheLayout }) }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[28], in: buffer)
         if _accessed.contains(29) {
             let value = _arrays!.value
             if !value._isProtoCacheEmpty { fields[29] = try value._encodeProtoCache(in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(29) {
-            fields[29] = try _ProtoCacheEncoding.copy(original, kind: .message({ Test_ArrMapView._protoCacheLayout }), in: buffer)
+        } else {
+            fields[29] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(29) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .message({ Test_ArrMapView._protoCacheLayout }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[29], in: buffer)
         if _accessed.contains(31) {
@@ -794,8 +893,11 @@ public struct Test_MainMutable: Sendable {
                 let elements = value.map { _ProtoCacheEncoding.scalar($0.rawValue) }
                 fields[31] = try _ProtoCacheEncoding.array(elements, in: buffer, since: checkpoint)
             }
-        } else if let original = _source._protoCacheMessageView.field(31) {
-            fields[31] = try _ProtoCacheEncoding.copy(original, kind: .array({ .enumeration }), in: buffer)
+        } else {
+            fields[31] = try _source.withView(Test_MainView.self) { source in
+                guard let original = source._protoCacheMessageView.field(31) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .array({ .enumeration }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[31], in: buffer)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
@@ -807,26 +909,26 @@ public struct Test_MainMutable: Sendable {
 }
 
 public struct Test_CyclicAMutable: Sendable {
-    private var _source: Test_CyclicAView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 2)
     private var _value: Int32?
     private var _cyclic: _ProtoCacheBox<Test_CyclicBMutable>?
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var value: Int32 {
-        get { _value ?? (_source.value) }
+        get { _value ?? (_source.withView(Test_CyclicAView.self) { source in source.value }) }
         set { _value = newValue; _accessed.insert(0) }
         _modify {
-            if _value == nil { _value = _source.value }
+            if _value == nil { _value = _source.withView(Test_CyclicAView.self) { source in source.value } }
             _accessed.insert(0)
             yield &_value!
         }
     }
     public var cyclic: Test_CyclicBMutable {
-        get { _cyclic?.value ?? (Test_CyclicBMutable(_source.cyclic._protoCacheBytes)) }
+        get { _cyclic?.value ?? ({ let owner = _source; let range = owner.withView(Test_CyclicAView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicBMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
         set { _cyclic = _ProtoCacheBox(newValue); _accessed.insert(1) }
         _modify {
-            if _cyclic == nil { _cyclic = _ProtoCacheBox(Test_CyclicBMutable(_source.cyclic._protoCacheBytes)) }
+            if _cyclic == nil { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicAView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicBMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
             var box = _cyclic!
             _protoCacheEnsureUnique(&box)
             _cyclic = box
@@ -835,26 +937,32 @@ public struct Test_CyclicAMutable: Sendable {
         }
     }
     public var _isProtoCacheEmpty: Bool {
-        if let value = _value { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(0) { return false }
-        if let value = _cyclic { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(1) { return false }
+        if let value = _value { if value != 0 { return false } } else if _source.withView(Test_CyclicAView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
+        if let value = _cyclic { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_CyclicAView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 2)
         if _accessed.contains(0) {
             let value = _value!
             if value != 0 { fields[0] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(0) {
-            fields[0] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[0] = try _source.withView(Test_CyclicAView.self) { source in
+                guard let original = source._protoCacheMessageView.field(0) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[0], in: buffer)
         if _accessed.contains(1) {
             let value = _cyclic!.value
             if !value._isProtoCacheEmpty { fields[1] = try value._encodeProtoCache(in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(1) {
-            fields[1] = try _ProtoCacheEncoding.copy(original, kind: .message({ Test_CyclicBView._protoCacheLayout }), in: buffer)
+        } else {
+            fields[1] = try _source.withView(Test_CyclicAView.self) { source in
+                guard let original = source._protoCacheMessageView.field(1) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .message({ Test_CyclicBView._protoCacheLayout }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[1], in: buffer)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
@@ -866,26 +974,26 @@ public struct Test_CyclicAMutable: Sendable {
 }
 
 public struct Test_CyclicBMutable: Sendable {
-    private var _source: Test_CyclicBView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 2)
     private var _value: Int32?
     private var _cyclic: _ProtoCacheBox<Test_CyclicAMutable>?
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var value: Int32 {
-        get { _value ?? (_source.value) }
+        get { _value ?? (_source.withView(Test_CyclicBView.self) { source in source.value }) }
         set { _value = newValue; _accessed.insert(0) }
         _modify {
-            if _value == nil { _value = _source.value }
+            if _value == nil { _value = _source.withView(Test_CyclicBView.self) { source in source.value } }
             _accessed.insert(0)
             yield &_value!
         }
     }
     public var cyclic: Test_CyclicAMutable {
-        get { _cyclic?.value ?? (Test_CyclicAMutable(_source.cyclic._protoCacheBytes)) }
+        get { _cyclic?.value ?? ({ let owner = _source; let range = owner.withView(Test_CyclicBView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicAMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
         set { _cyclic = _ProtoCacheBox(newValue); _accessed.insert(1) }
         _modify {
-            if _cyclic == nil { _cyclic = _ProtoCacheBox(Test_CyclicAMutable(_source.cyclic._protoCacheBytes)) }
+            if _cyclic == nil { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicBView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicAMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()) }
             var box = _cyclic!
             _protoCacheEnsureUnique(&box)
             _cyclic = box
@@ -894,26 +1002,32 @@ public struct Test_CyclicBMutable: Sendable {
         }
     }
     public var _isProtoCacheEmpty: Bool {
-        if let value = _value { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(0) { return false }
-        if let value = _cyclic { if !value.value._isProtoCacheEmpty { return false } } else if _source._protoCacheMessageView.hasField(1) { return false }
+        if let value = _value { if value != 0 { return false } } else if _source.withView(Test_CyclicBView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
+        if let value = _cyclic { if !value.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_CyclicBView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 2)
         if _accessed.contains(0) {
             let value = _value!
             if value != 0 { fields[0] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(0) {
-            fields[0] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[0] = try _source.withView(Test_CyclicBView.self) { source in
+                guard let original = source._protoCacheMessageView.field(0) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[0], in: buffer)
         if _accessed.contains(1) {
             let value = _cyclic!.value
             if !value._isProtoCacheEmpty { fields[1] = try value._encodeProtoCache(in: buffer) }
-        } else if let original = _source._protoCacheMessageView.field(1) {
-            fields[1] = try _ProtoCacheEncoding.copy(original, kind: .message({ Test_CyclicAView._protoCacheLayout }), in: buffer)
+        } else {
+            fields[1] = try _source.withView(Test_CyclicBView.self) { source in
+                guard let original = source._protoCacheMessageView.field(1) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .message({ Test_CyclicAView._protoCacheLayout }), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[1], in: buffer)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
@@ -925,33 +1039,36 @@ public struct Test_CyclicBMutable: Sendable {
 }
 
 public struct Test_Deprecated_ValidMutable: Sendable {
-    private var _source: Test_Deprecated_ValidView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 1)
     private var _val: Int32?
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var val: Int32 {
-        get { _val ?? (_source.val) }
+        get { _val ?? (_source.withView(Test_Deprecated_ValidView.self) { source in source.val }) }
         set { _val = newValue; _accessed.insert(0) }
         _modify {
-            if _val == nil { _val = _source.val }
+            if _val == nil { _val = _source.withView(Test_Deprecated_ValidView.self) { source in source.val } }
             _accessed.insert(0)
             yield &_val!
         }
     }
     public var _isProtoCacheEmpty: Bool {
-        if let value = _val { if value != 0 { return false } } else if _source._protoCacheMessageView.hasField(0) { return false }
+        if let value = _val { if value != 0 { return false } } else if _source.withView(Test_Deprecated_ValidView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 1)
         if _accessed.contains(0) {
             let value = _val!
             if value != 0 { fields[0] = _ProtoCacheEncoding.scalar(value) }
-        } else if let original = _source._protoCacheMessageView.field(0) {
-            fields[0] = try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+        } else {
+            fields[0] = try _source.withView(Test_Deprecated_ValidView.self) { source in
+                guard let original = source._protoCacheMessageView.field(0) else { return .empty }
+                return try _ProtoCacheEncoding.copy(original, kind: .scalar(.int32), in: buffer)
+            }
         }
         _ProtoCacheEncoding.fold(&fields[0], in: buffer)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
@@ -963,15 +1080,15 @@ public struct Test_Deprecated_ValidMutable: Sendable {
 }
 
 public struct Test_DeprecatedMutable: Sendable {
-    private var _source: Test_DeprecatedView
+    private var _source: ProtoCacheBytes
     private var _accessed = _ProtoCacheAccessed(fieldCount: 1)
-    public init() { _source = .init(.empty) }
-    public init(_ bytes: ProtoCacheBytes) { _source = .init(bytes) }
+    public init() { _source = .empty }
+    public init(_ bytes: ProtoCacheBytes) { _source = bytes }
     public var _isProtoCacheEmpty: Bool {
         return true
     }
     public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> _ProtoCacheUnit {
-        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source._protoCacheBytes, in: buffer) }
+        if _accessed.isEmpty { return try _ProtoCacheEncoding.embedded(_source, in: buffer) }
         let checkpoint = buffer.checkpoint
         var fields = [_ProtoCacheUnit](repeating: .empty, count: 1)
         return try _ProtoCacheEncoding.message(&fields, in: buffer, since: checkpoint)
