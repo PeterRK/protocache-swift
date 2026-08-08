@@ -188,15 +188,15 @@ and [binary format](https://github.com/PeterRK/ProtoCache/blob/main/data-format.
 ## Benchmark
 
 Local Linux release results on the shared fixture, using public APIs and
-reporting the median:
+reporting the median. Timings are ns/op-equivalent local samples:
 
 | | Protobuf | ProtoCache | FlatBuffers |
 |:--|--:|--:|--:|
 | Data size | **574B** | 780B | 1296B |
-| Decode + traverse + dealloc | 9.496 us | **0.210 us** | 14.378 us |
+| Decode + traverse + dealloc | 9496ns | **210ns** | 14378ns |
 | Compressed size | **566B** | 571B* | 856B |
-| Compress | **0.630 us** | 0.834 us | 1.446 us |
-| Decompress | **0.190 us** | 0.382 us | 0.816 us |
+| Compress | **630ns** | 834ns | 1446ns |
+| Decompress | **190ns** | 382ns | 816ns |
 
 \* 571B follows the C++ and Rust benchmark's reference-fixture convention.
 Compressed size is not a stable wire property: C++, Rust, and Swift vary the
@@ -209,8 +209,8 @@ Representative mutable and serialization paths:
 
 | | Protobuf | ProtoCacheEX | ProtoCache |
 |:--|--:|--:|--:|
-| Serialize | 4.844 us | **0.475 us / 3.388 us** | 8.467 us |
-| Decode + traverse + dealloc | 9.496 us | 2.538 us | **0.210 us** |
+| Serialize | 4844ns | **475ns / 3388ns** | 8467ns |
+| Decode + traverse + dealloc | 9496ns | 2538ns | **210ns** |
 
 The two ProtoCacheEX serialization figures are partial-update and fully
 materialized results, respectively. ProtoCache and ProtoCacheEX use the public
