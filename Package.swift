@@ -8,13 +8,13 @@ let lifetimeSettings: [SwiftSetting] = [
 let package = Package(
     name: "protocache-swift",
     platforms: [
-        .macOS(.v13),
-        .iOS(.v16),
+        .macOS(.v26),
+        .iOS(.v26),
     ],
     products: [
         .library(name: "protocache-core", targets: ["ProtoCacheCore"]),
         .library(name: "protocache", targets: ["ProtoCache"]),
-        .executable(name: "protoc-gen-pcsw", targets: ["ProtoCacheGenerator"]),
+        .executable(name: "protoc-gen-pcsw", targets: ["ProtoCacheGeneratorCLI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.38.0"),
@@ -29,12 +29,17 @@ let package = Package(
             ],
             swiftSettings: lifetimeSettings
         ),
-        .executableTarget(
+        .target(
             name: "ProtoCacheGenerator",
             dependencies: [
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "SwiftProtobufPluginLibrary", package: "swift-protobuf"),
             ],
+            swiftSettings: lifetimeSettings
+        ),
+        .executableTarget(
+            name: "ProtoCacheGeneratorCLI",
+            dependencies: ["ProtoCacheGenerator"],
             swiftSettings: lifetimeSettings
         ),
         .testTarget(

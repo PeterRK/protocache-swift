@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "protocache-benchmarks",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v26),
     ],
     dependencies: [
         .package(name: "protocache-swift", path: ".."),

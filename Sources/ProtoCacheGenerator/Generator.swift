@@ -7,13 +7,18 @@ enum GenError: Error, CustomStringConvertible {
     var description: String { switch self { case .schema(let message): message } }
 }
 
-struct Generator {
+package struct Generator {
     typealias Request = Google_Protobuf_Compiler_CodeGeneratorRequest
     typealias Response = Google_Protobuf_Compiler_CodeGeneratorResponse
     typealias FileProto = Google_Protobuf_FileDescriptorProto
     typealias MessageProto = Google_Protobuf_DescriptorProto
     typealias FieldProto = Google_Protobuf_FieldDescriptorProto
     typealias EnumProto = Google_Protobuf_EnumDescriptorProto
+
+    package static func generate(serializedRequest input: Data) throws -> Data {
+        let request = try Request(serializedBytes: input)
+        return try generate(request).serializedBytes()
+    }
 
     static func generate(_ request: Request) -> Response {
         var response = Response()

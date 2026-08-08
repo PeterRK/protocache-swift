@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "ProtoCachePackageConsumer",
     platforms: [
-        .macOS(.v13),
-        .iOS(.v16),
+        .macOS(.v26),
+        .iOS(.v26),
     ],
     dependencies: [
         .package(name: "protocache-swift", path: "../.."),

@@ -69,19 +69,27 @@ jobs:
 
   thread-sanitizer:
     name: macOS Thread Sanitizer
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - run: swift --version
-      - run: swift test --sanitize=thread
+      - name: Verify Swift 6.3 toolchain
+        run: |
+          swift --version
+          swift --version | grep -F "Swift version 6.3"
+      - name: Test with Thread Sanitizer
+        run: swift test --sanitize=thread
 
   macos:
     name: macOS build, test, generator, consumer
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,6 +97,7 @@ jobs:
       - name: Show toolchain
         run: |
           swift --version
+          swift --version | grep -F "Swift version 6.3"
           xcodebuild -version
       - name: Install protoc
         run: brew install protobuf
@@ -112,13 +121,20 @@ jobs:
         run: swift run --package-path Tests/PackageConsumer -c release Consumer
 
   ios:
-    name: iOS 16+ simulator smoke
-    runs-on: macos-15
+    name: iOS 26+ simulator smoke
+    runs-on: macos-26
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Verify Swift 6.3 toolchain
+        run: |
+          swift --version
+          swift --version | grep -F "Swift version 6.3"
+          xcodebuild -version
       - name: Select an available iPhone simulator
         run: |
           python3 - <<'PY'
@@ -144,14 +160,13 @@ jobs:
       - name: Compile both libraries for iOS Simulator
         run: |
           xcodebuild -scheme protocache-core -configuration Release \
-            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=26.0 \
             CODE_SIGNING_ALLOWED=NO build
           xcodebuild -scheme protocache -configuration Release \
-            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            -destination "$IOS_DESTINATION" IPHONEOS_DEPLOYMENT_TARGET=26.0 \
             CODE_SIGNING_ALLOWED=NO build
       - name: Run readonly, EX and compression smoke tests
         run: |
-          xcodebuild test -scheme protocache-core -destination "$IOS_DESTINATION" \
-            CODE_SIGNING_ALLOWED=NO -only-testing:ProtoCacheCoreTests
-          xcodebuild test -scheme protocache -destination "$IOS_DESTINATION" \
-            CODE_SIGNING_ALLOWED=NO -only-testing:ProtoCacheTests
+          xcodebuild test -scheme protocache-swift-Package \
+            -destination "$IOS_DESTINATION" CODE_SIGNING_ALLOWED=NO \
+            -only-testing:ProtoCacheCoreTests -only-testing:ProtoCacheTests

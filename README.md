@@ -26,7 +26,7 @@ main package dependency graph.
 ## Requirements
 
 - Swift 6.3 or newer with the experimental `Lifetimes` feature
-- macOS 13 or newer, iOS 16 or newer, or 64-bit Linux
+- macOS 26 or newer, iOS 26 or newer, or 64-bit Linux
 - `protoc` when generating bindings
 
 Linux x86_64 is the fully exercised development platform. Manual CI also tests
