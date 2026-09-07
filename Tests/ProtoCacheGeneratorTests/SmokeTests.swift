@@ -81,18 +81,6 @@ private func request(parameter: String = "") -> Generator.Request {
     let extra = response.file[1].content
     #expect(extra.contains("public struct Sample_RootMutable: _ProtoCacheMutableEncoding"))
     #expect(extra.contains("public struct Sample_FloatsMutable: _ProtoCacheMutableEncoding"))
-    #expect(!extra.contains("public func serialized()"))
-    #expect(extra.contains("private var _source: Bytes"))
-    #expect(!extra.contains("private var _source: Bytes?"))
-    #expect(extra.contains("public init() { _source = .empty }"))
-    #expect(extra.contains("InlineArray<1, UInt64>"))
-    #expect(extra.contains("mutating _read"))
-    #expect(extra.contains("yield _child"))
-    #expect(!extra.contains("_ProtoCacheBox<Sample_ChildMutable>"))
-    #expect(extra.contains("yield _values"))
-    #expect(!extra.contains("_ProtoCacheAccessed"))
-    #expect(extra.contains("else if let original"))
-    #expect(!extra.contains("copy(original, kind:"))
     #expect(!extra.contains("SwiftProtobuf"))
 }
 

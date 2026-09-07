@@ -1,4 +1,49 @@
 extension Generator {
+    enum ScalarType: String {
+        case bool, int32, uint32, int64, uint64, float, double
+
+        var swiftType: String {
+            switch self {
+            case .bool: "Bool"
+            case .int32: "Int32"
+            case .uint32: "UInt32"
+            case .int64: "Int64"
+            case .uint64: "UInt64"
+            case .float: "Float"
+            case .double: "Double"
+            }
+        }
+
+        var wordWidth: Int {
+            switch self {
+            case .int64, .uint64, .double: 2
+            default: 1
+            }
+        }
+
+        var emptyArrayHeader: UInt32 { self == .bool ? 0 : UInt32(wordWidth) }
+
+        var isMapKey: Bool {
+            switch self {
+            case .int32, .uint32, .int64, .uint64: true
+            default: false
+            }
+        }
+    }
+
+    static func scalarType(_ type: FieldProto.TypeEnum) -> ScalarType? {
+        switch type {
+        case .bool: .bool
+        case .int32, .sint32, .sfixed32: .int32
+        case .uint32, .fixed32: .uint32
+        case .int64, .sint64, .sfixed64: .int64
+        case .uint64, .fixed64: .uint64
+        case .float: .float
+        case .double: .double
+        default: nil
+        }
+    }
+
     struct SchemaIndex {
         var messages: [String: MessageProto] = [:]
 
@@ -86,21 +131,15 @@ extension Generator {
             guard target.field.count == 2 else {
                 throw GenError.schema("\(owner).\(field.name): invalid map entry")
             }
-            guard mapKeyType(target.field[0].type) != nil else {
+            guard isMapKey(target.field[0].type) else {
                 throw GenError.schema("\(owner).\(field.name): unsupported map key")
             }
         }
     }
 
     static func readType(_ field: FieldProto) throws -> String {
-        switch field.type {
-        case .double: "Double"
-        case .float: "Float"
-        case .int64, .sint64, .sfixed64: "Int64"
-        case .uint64, .fixed64: "UInt64"
-        case .int32, .sint32, .sfixed32: "Int32"
-        case .uint32, .fixed32: "UInt32"
-        case .bool: "Bool"
+        if let scalar = scalarType(field.type) { return scalar.swiftType }
+        return switch field.type {
         case .string: "StringView"
         case .bytes: "BytesView"
         case .enum: "\(swiftType(field.typeName))Value"
@@ -118,14 +157,8 @@ extension Generator {
     }
 
     static func baseMetadataKind(_ field: FieldProto) throws -> String {
-        switch field.type {
-        case .double: ".scalar(.double)"
-        case .float: ".scalar(.float)"
-        case .int64, .sint64, .sfixed64: ".scalar(.int64)"
-        case .uint64, .fixed64: ".scalar(.uint64)"
-        case .int32, .sint32, .sfixed32: ".scalar(.int32)"
-        case .uint32, .fixed32: ".scalar(.uint32)"
-        case .bool: ".scalar(.bool)"
+        if let scalar = scalarType(field.type) { return ".scalar(.\(scalar.rawValue))" }
+        return switch field.type {
         case .string: ".string"
         case .bytes: ".bytes"
         case .enum: ".enumeration"
@@ -141,14 +174,8 @@ extension Generator {
         return message
     }
 
-    static func mapKeyType(_ type: FieldProto.TypeEnum) -> String? {
-        switch type {
-        case .string, .int32, .sint32, .sfixed32, .uint32, .fixed32,
-             .int64, .sint64, .sfixed64, .uint64, .fixed64:
-            "ok"
-        default:
-            nil
-        }
+    static func isMapKey(_ type: FieldProto.TypeEnum) -> Bool {
+        type == .string || scalarType(type)?.isMapKey == true
     }
 
     static func isAlias(_ message: MessageProto) -> Bool {

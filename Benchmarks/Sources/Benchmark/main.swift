@@ -7,18 +7,24 @@ import SwiftProtobuf
 
 private let defaultLoops = 1_000_000
 
-private struct BenchError: Error, CustomStringConvertible {
+struct BenchError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
 }
 
-private struct BenchConfig {
+struct BenchConfig {
     let loops: Int
     let only: String?
+    let warmup: Int
+    let count: Int
+    let payload: Int
 
     static func parse() throws -> BenchConfig? {
         var loops = defaultLoops
         var only: String?
+        var warmup = 1000
+        var count = 256
+        var payload = 0
         var index = 1
         let arguments = CommandLine.arguments
 
@@ -32,6 +38,19 @@ private struct BenchConfig {
                     throw BenchError("--loops requires a positive integer")
                 }
                 loops = value
+            case "--warmup", "--count", "--payload":
+                let option = arguments[index]
+                index += 1
+                guard index < arguments.count, let value = Int(arguments[index]), value >= 0 else {
+                    throw BenchError("\(option) requires a nonnegative integer")
+                }
+                switch option {
+                case "--warmup": warmup = value
+                case "--count":
+                    guard value < 1 << 28 else { throw BenchError("--count exceeds the wire limit") }
+                    count = value
+                default: payload = value
+                }
             case "--only":
                 index += 1
                 guard index < arguments.count else {
@@ -39,14 +58,18 @@ private struct BenchConfig {
                 }
                 only = arguments[index]
             case "--help", "-h":
-                print("Usage: swift run --package-path Benchmarks -c release Benchmark [--loops N] [--only NAME]")
+                print("Usage: swift run --package-path Benchmarks -c release Benchmark [--loops N] [--only NAME] [--warmup N] [--count N] [--payload N]")
                 return nil
             default:
                 throw BenchError("unknown argument: \(arguments[index])")
             }
             index += 1
         }
-        return BenchConfig(loops: loops, only: only)
+        let cases: Set<String> = ["protobuf", "protocache", "flatbuffers", "protocache-ex",
+            "protobuf-serialize", "protocache-serialize", "protocache-fully", "protocache-partly",
+            "pb-compress", "pc-compress", "fb-compress", "scale-hash", "scale-map", "scale-dynamic"]
+        if let only, !cases.contains(only) { throw BenchError("unknown benchmark: \(only)") }
+        return BenchConfig(loops: loops, only: only, warmup: warmup, count: count, payload: payload)
     }
 
     func shouldRun(_ name: String) -> Bool {
@@ -463,60 +486,82 @@ private func readPartly(_ root: inout Test_MainMutable) {
     _ = (i32, u32, i64, u64, flag, mode, str, data, f32, f64)
 }
 
-@inline(__always)
-private func elapsedMS(since start: UInt64) -> Int {
-    let elapsed = DispatchTime.now().uptimeNanoseconds - start
-    return Int((Double(elapsed) / 1_000_000).rounded())
-}
-
 private func benchRead(
     _ name: String,
     bytes: Int,
     loops: Int,
+    warmup: Int,
     _ body: (inout Junk) throws -> Void
 ) rethrows {
+    var validationJunk = Junk()
+    try body(&validationJunk)
+    var warmupJunk = Junk()
+    for _ in 0..<warmup { try body(&warmupJunk) }
     var junk = Junk()
     let start = DispatchTime.now().uptimeNanoseconds
     for _ in 0..<loops { try body(&junk) }
-    let ms = elapsedMS(since: start)
-    print("\(name): \(bytes)B \(ms)ms \(String(format: "%016llx", junk.fuse()))")
+    let elapsed = DispatchTime.now().uptimeNanoseconds - start
+    // Long floating-point reductions vary with Dictionary iteration order.
+    // Keep their observable result, but compare the validated single traversal
+    // across processes and verify the timed integer reductions exactly.
+    precondition(junk.u32Sum == validationJunk.u32Sum &* UInt32(truncatingIfNeeded: loops))
+    precondition(junk.u64Sum == validationJunk.u64Sum &* UInt64(loops))
+    let ms = Int((Double(elapsed) / 1_000_000).rounded())
+    print("\(name): \(bytes)B \(ms)ms \(String(format: "%016llx", junk.fuse())) warmup=\(warmupJunk.fuse())")
+    BenchmarkMeasurement(name: name, loops: loops, elapsed_ns: elapsed,
+                         checksum: String(validationJunk.fuse()), raw_bytes: bytes,
+                         accumulated_checksum: String(junk.fuse())).report()
 }
 
 private func benchWrite(
     _ name: String,
     loops: Int,
+    warmup: Int,
     _ body: () throws -> Int
 ) rethrows {
+    var warmupTotal = 0
+    for _ in 0..<warmup { warmupTotal &+= try body() }
     var total = 0
     let start = DispatchTime.now().uptimeNanoseconds
     for _ in 0..<loops { total &+= try body() }
-    let ms = elapsedMS(since: start)
-    print("\(name): \(ms)ms \(String(total, radix: 16))")
+    let elapsed = DispatchTime.now().uptimeNanoseconds - start
+    let ms = Int((Double(elapsed) / 1_000_000).rounded())
+    print("\(name): \(ms)ms \(String(total, radix: 16)) warmup=\(warmupTotal)")
+    BenchmarkMeasurement(name: name, loops: loops, elapsed_ns: elapsed,
+                         checksum: String(total), raw_bytes: nil).report()
 }
 
 private func benchCompression(
     _ name: String,
     raw: UnsafeRawBufferPointer,
-    loops: Int
+    loops: Int,
+    warmup: Int
 ) throws {
     var compressed: [UInt8] = []
+    for _ in 0..<warmup { Compression.compress(raw, into: &compressed) }
     let compressStart = DispatchTime.now().uptimeNanoseconds
     for _ in 0..<loops {
         Compression.compress(raw, into: &compressed)
     }
-    print("\(name)-compress: \(compressed.count)B \(elapsedMS(since: compressStart))ms")
+    let compressElapsed = DispatchTime.now().uptimeNanoseconds - compressStart
+    BenchmarkMeasurement(name: name + "-compress", loops: loops, elapsed_ns: compressElapsed,
+                         checksum: String(raw.count), raw_bytes: raw.count).report()
+    print("\(name)-compress: \(compressed.count)B")
 
     var restored: [UInt8] = []
+    for _ in 0..<warmup { try compressed.withUnsafeBytes { try Compression.decompress($0, into: &restored) } }
     let decompressStart = DispatchTime.now().uptimeNanoseconds
     try compressed.withUnsafeBytes { input in
         for _ in 0..<loops {
             try Compression.decompress(input, into: &restored)
         }
     }
+    let decompressElapsed = DispatchTime.now().uptimeNanoseconds - decompressStart
     guard restored.elementsEqual(raw) else {
         throw BenchError("\(name) decompression roundtrip mismatch")
     }
-    print("\(name)-decompress: \(elapsedMS(since: decompressStart))ms")
+    BenchmarkMeasurement(name: name + "-decompress", loops: loops, elapsed_ns: decompressElapsed,
+                         checksum: String(restored.count), raw_bytes: raw.count).report()
 }
 
 private func run(_ config: BenchConfig) throws {
@@ -530,7 +575,15 @@ private func run(_ config: BenchConfig) throws {
     let json = try Data(contentsOf: jsonURL)
     let message = try Test_Main(jsonUTF8Data: json)
     let pbData = try message.serializedData()
-    let pcBytes = try ProtoCache.serialize(message, as: Test_MainView.self)
+    let pcBytes: Bytes
+    if let path = ProcessInfo.processInfo.environment["PROTOCACHE_BENCH_INPUT"] {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let pointer = UnsafeMutableRawPointer.allocate(byteCount: max(1, data.count), alignment: 4)
+        data.copyBytes(to: UnsafeMutableRawBufferPointer(start: pointer, count: data.count))
+        pcBytes = Bytes(adopting: pointer, count: data.count)
+    } else {
+        pcBytes = try ProtoCache.serialize(message, as: Test_MainView.self)
+    }
     let fbURL = Bundle.module.url(
         forResource: "test-fb",
         withExtension: "bin",
@@ -556,6 +609,9 @@ private func run(_ config: BenchConfig) throws {
     var expected = Junk()
     pcBytes.withView(Test_MainView.self) { readPC($0, &expected) }
     let checksum = expected.fuse()
+    var pbJunk = Junk()
+    readPB(message, &pbJunk)
+    guard pbJunk.fuse() == checksum else { throw BenchError("Protobuf semantic checksum mismatch") }
 
     var fbBuffer = ByteBuffer(data: fbData)
     let fbRoot: test_Main = getRoot(byteBuffer: &fbBuffer)
@@ -586,6 +642,7 @@ private func run(_ config: BenchConfig) throws {
     var full = Test_MainMutable(pcBytes)
     var fullJunk = Junk()
     readMutable(&full, &fullJunk)
+    guard fullJunk.fuse() == checksum else { throw BenchError("Mutable semantic checksum mismatch") }
     let fullBytes = try full.serialized()
     try validate("protocache-fully", fullBytes)
 
@@ -612,27 +669,27 @@ private func run(_ config: BenchConfig) throws {
     print("validated EX output: fully=\(fullBytes.count)B partly=\(partialBytes.count)B")
 
     if config.shouldRun("protobuf") {
-        try benchRead("protobuf", bytes: pbData.count, loops: config.loops) { junk in
+        try benchRead("protobuf", bytes: pbData.count, loops: config.loops, warmup: config.warmup) { junk in
             let root = try Test_Main(serializedBytes: pbData)
             readPB(root, &junk)
         }
     }
 
     if config.shouldRun("protocache") {
-        benchRead("protocache", bytes: pcBytes.count, loops: config.loops) { junk in
+        benchRead("protocache", bytes: pcBytes.count, loops: config.loops, warmup: config.warmup) { junk in
             pcBytes.withView(Test_MainView.self) { readPC($0, &junk) }
         }
     }
 
     if config.shouldRun("flatbuffers") {
-        benchRead("flatbuffers", bytes: fbData.count, loops: config.loops) { junk in
+        benchRead("flatbuffers", bytes: fbData.count, loops: config.loops, warmup: config.warmup) { junk in
             let root: test_Main = getRoot(byteBuffer: &fbBuffer)
             readFB(root, &junk)
         }
     }
 
     if config.shouldRun("protocache-ex") {
-        benchRead("protocache-ex", bytes: pcBytes.count, loops: config.loops) { junk in
+        benchRead("protocache-ex", bytes: pcBytes.count, loops: config.loops, warmup: config.warmup) { junk in
             var root = Test_MainMutable(pcBytes)
             readMutable(&root, &junk)
         }
@@ -649,14 +706,14 @@ private func run(_ config: BenchConfig) throws {
     }
 
     if config.shouldRun("protobuf-serialize") {
-        try benchWrite("protobuf-serialize", loops: config.loops) {
+        try benchWrite("protobuf-serialize", loops: config.loops, warmup: config.warmup) {
             try message.serializedData().count
         }
     }
 
     if config.shouldRun("protocache-serialize") {
         let buffer = SerializationBuffer()
-        try benchWrite("protocache-serialize", loops: config.loops) {
+        try benchWrite("protocache-serialize", loops: config.loops, warmup: config.warmup) {
             try ProtoCache.withSerializedSpan(
                 message,
                 using: buffer,
@@ -670,7 +727,7 @@ private func run(_ config: BenchConfig) throws {
         var junk = Junk()
         readMutable(&root, &junk)
         let buffer = SerializationBuffer()
-        try benchWrite("protocache-fully", loops: config.loops) {
+        try benchWrite("protocache-fully", loops: config.loops, warmup: config.warmup) {
             try root.withSerializedSpan(using: buffer) { $0.count / 4 }
         }
     }
@@ -679,7 +736,7 @@ private func run(_ config: BenchConfig) throws {
         var root = Test_MainMutable(pcBytes)
         readPartly(&root)
         let buffer = SerializationBuffer()
-        try benchWrite("protocache-partly", loops: config.loops) {
+        try benchWrite("protocache-partly", loops: config.loops, warmup: config.warmup) {
             try root.withSerializedSpan(using: buffer) { $0.count / 4 }
         }
     }
@@ -692,23 +749,24 @@ private func run(_ config: BenchConfig) throws {
     if config.shouldRun("pb-compress") {
         let bytes = [UInt8](pbData)
         try bytes.withUnsafeBytes {
-            try benchCompression("pb", raw: $0, loops: config.loops)
+            try benchCompression("pb", raw: $0, loops: config.loops, warmup: config.warmup)
         }
     }
 
     if config.shouldRun("pc-compress") {
         try pcBytes.withUnsafeBytes {
-            try benchCompression("pc", raw: $0, loops: config.loops)
+            try benchCompression("pc", raw: $0, loops: config.loops, warmup: config.warmup)
         }
     }
 
     if config.shouldRun("fb-compress") {
         try fbData.withUnsafeBytes {
-            try benchCompression("fb", raw: $0, loops: config.loops)
+            try benchCompression("fb", raw: $0, loops: config.loops, warmup: config.warmup)
         }
     }
 }
 
 if let config = try BenchConfig.parse() {
-    try run(config)
+    if config.only?.hasPrefix("scale-") == true { try runScale(config) }
+    else { try run(config) }
 }

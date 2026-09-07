@@ -54,8 +54,10 @@ extension Generator {
             } else {
                 output += "public struct \(name): ~Escapable, GeneratedView {\n"
                 output += "    public typealias Element = \(try readType(field))\n"
-                output += "    private let _value: ArrayView<Element>\n"
-                output += renderViewStorage(for: "_value._protoCacheSpan", initializer: "_value = ArrayView(bytes)")
+                let container = field.type == .bool ? "BoolArrayView" : "ArrayView<Element>"
+                let initializer = field.type == .bool ? "BoolArrayView(encoded: bytes)" : "ArrayView(bytes)"
+                output += "    private let _value: \(container)\n"
+                output += renderViewStorage(for: "_value._protoCacheSpan", initializer: "_value = \(initializer)")
                 output += "    public var count: Int { _value.count }\n    public var isEmpty: Bool { _value.isEmpty }\n"
                 if isBorrowed(field) {
                     output += "    public subscript(position: Int) -> Element { @_lifetime(copy self) borrowing get { _value[position] } }\n"
@@ -177,6 +179,13 @@ extension Generator {
         case .bytes:
             return borrowedGetter(property, type: "BytesView", expression: "_protoCacheMessageView.bytes(\(id))")
         case .message:
+            if let message = index.messages[field.typeName], isAlias(message) {
+                return borrowedGetter(
+                    property,
+                    type: try readType(field),
+                    expression: "guard let field = _protoCacheMessageView.field(\(id)) else { return .init(.empty) }; return .init(field.objectBytes)"
+                )
+            }
             return borrowedGetter(
                 property,
                 type: try readType(field),

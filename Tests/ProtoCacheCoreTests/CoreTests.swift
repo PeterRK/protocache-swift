@@ -118,6 +118,9 @@ import Testing
         [true],
         [false, true, false],
         (0..<33).map { $0.isMultiple(of: 3) },
+        (0..<4095).map { $0.isMultiple(of: 3) },
+        (0..<4096).map { $0.isMultiple(of: 3) },
+        (0..<4097).map { $0.isMultiple(of: 3) },
     ]
     for values in cases {
         let boolBuffer = _ProtoCacheBuffer()

@@ -21,7 +21,7 @@ public struct Test_RecursiveTreeView: ~Escapable, GeneratedView {
     @inlinable @inline(__always) public var branches: MapView<StringView, Test_RecursiveTreeView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.map(2) } }
     @inlinable @inline(__always) public var next: Test_RecursiveTreeView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(3).bytes) } }
     @inlinable @inline(__always) public var padding: BytesView { @_lifetime(copy self) borrowing get { _protoCacheMessageView.bytes(4) } }
-    @inlinable @inline(__always) public var flags: Test_BooleanListView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(5).bytes) } }
+    @inlinable @inline(__always) public var flags: Test_BooleanListView { @_lifetime(copy self) borrowing get { guard let field = _protoCacheMessageView.field(5) else { return .init(.empty) }; return .init(field.objectBytes) } }
     @inline(__always) static func _detectProtoCacheWords(_ bytes: Span, depth: Int = 0) throws -> Int {
         guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         let baseWords = try _ProtoCacheEncoding._detectMessageBaseWords(bytes)
@@ -71,9 +71,9 @@ private let _pcswLayout_Test_RecursiveTreeView = _ProtoCacheLayout(
 
 public struct Test_BooleanListView: ~Escapable, GeneratedView {
     public typealias Element = Bool
-    private let _value: ArrayView<Element>
+    private let _value: BoolArrayView
     public var _protoCacheSpan: Span { @_lifetime(borrow self) borrowing get { _value._protoCacheSpan } }
-    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = ArrayView(bytes) }
+    @_lifetime(copy bytes) public init(_ bytes: Span) { _value = BoolArrayView(encoded: bytes) }
     @_lifetime(copy field) public static func _decodeProtoCache(from field: FieldView) -> Self? { Self(field.objectBytes) }
     @_lifetime(copy owner) public static func _decodeProtoCache(fromRawWords baseAddress: UnsafeRawPointer, availableByteCount: Int, width: Int, owner: borrowing Span) -> Self? { guard let bytes = _protoCacheObjectBytes(fromRawWords: baseAddress, availableByteCount: availableByteCount, width: width, owner: owner) else { return nil }; return Self(bytes) }
     public var count: Int { _value.count }

@@ -205,9 +205,9 @@ public struct Test_MainView: ~Escapable, GeneratedView {
     @inlinable @inline(__always) public var tS64: Int64 { _protoCacheMessageView.scalar(24, as: Int64.self) }
     @inlinable @inline(__always) public var index: MapView<StringView, Int32> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.map(25) } }
     @inlinable @inline(__always) public var objects: MapView<Int32, Test_SmallView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.map(26) } }
-    @inlinable @inline(__always) public var matrix: Test_Vec2DView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(27).bytes) } }
+    @inlinable @inline(__always) public var matrix: Test_Vec2DView { @_lifetime(copy self) borrowing get { guard let field = _protoCacheMessageView.field(27) else { return .init(.empty) }; return .init(field.objectBytes) } }
     @inlinable @inline(__always) public var vector: ArrayView<Test_ArrMapView> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(28) } }
-    @inlinable @inline(__always) public var arrays: Test_ArrMapView { @_lifetime(copy self) borrowing get { .init(_protoCacheMessageView.message(29).bytes) } }
+    @inlinable @inline(__always) public var arrays: Test_ArrMapView { @_lifetime(copy self) borrowing get { guard let field = _protoCacheMessageView.field(29) else { return .init(.empty) }; return .init(field.objectBytes) } }
     @inlinable @inline(__always) public var modev: ArrayView<Test_ModeValue> { @_lifetime(copy self) borrowing get { _protoCacheMessageView.array(31) } }
     @inline(__always) static func _detectProtoCacheWords(_ bytes: Span, depth: Int = 0) throws -> Int {
         guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }

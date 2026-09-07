@@ -138,10 +138,7 @@ public enum PerfectHash {
 
     static func section(for count: Int) -> Int { max(10, (count * 105 + 255) / 256) }
     static func bitmapSize(section: Int) -> Int { ((section * 3 + 31) & ~31) / 4 }
-    // A valid 256-key map can exhaust 16 seeds (for example initial seed 71
-    // with little-endian Int32 keys 0..<256). Keep retries bounded, but allow
-    // the large graph to recover without changing its wire representation.
-    static func attemptLimit(for count: Int) -> Int { count <= Int(UInt8.max) ? 40 : 128 }
+    private static let attemptLimit = 40
 
     public static func build(_ keys: [[UInt8]]) throws -> (index: [UInt8], positions: [Int]) {
         try build(keys, initialSeed: nextSeed())
@@ -186,7 +183,7 @@ public enum PerfectHash {
         let vertexCount = section * 3
         var seeds = SeedSequence(initialSeed)
         var result: (seed: UInt32, edges: [Edge], order: PeelOrder)?
-        for _ in 0..<attemptLimit(for: count) {
+        for _ in 0..<attemptLimit {
             let seed = seeds.next()
             let edges = (0..<count).map { index -> Edge in
                 let code = Hash.hash128(keyAt(index), seed: UInt64(seed))
@@ -302,17 +299,7 @@ public enum PerfectHash {
                 }
             }
         }
-        if entries.count > 16 {
-            return try buildUnique(count: entries.count) { entries[$0].key }
-        }
-        if entries.count <= 1 {
-            var output = [UInt8](repeating: 0, count: 4)
-            output.withUnsafeMutableBytes {
-                $0.baseAddress!.storeBytes(of: UInt32(entries.count).littleEndian, as: UInt32.self)
-            }
-            return (output, entries.isEmpty ? [] : [0])
-        }
-        return try buildSmall(count: entries.count) { entries[$0].key }
+        return try buildUnique(count: entries.count) { entries[$0].key }
     }
 
     static func buildSmallEntries(
@@ -391,7 +378,7 @@ public enum PerfectHash {
                 var seeds = SeedSequence(initialSeed)
                 var seed: UInt32 = 0
                 var built = false
-                for _ in 0..<attemptLimit(for: edgeCount) {
+                for _ in 0..<attemptLimit {
                     seed = seeds.next()
                     for index in scratch.indices { scratch[index] = 0 }
                     for index in 0..<edgeCount {

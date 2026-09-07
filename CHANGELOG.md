@@ -8,18 +8,29 @@
   upgrading. Bindings explicitly record their ABI; mutable encoding and empty
   checks propagate a recursion depth budget.
 
+### Internal cleanup
+
+- Removed the unused schema-driven `copy(_:kind:in:)` support API and its
+  recursive extent walker. Current ABI 7 bindings use generated detectors.
+- Shared root materialization, byte-sequence encoding, compression traversal,
+  and decompression validation while retaining owned and caller-buffer APIs.
+- Centralized generator scalar classification and empty-array widths; removed
+  redundant internal parameters and PerfectHash branches. `MutableMap` and
+  generated runtime ABI 7 remain unchanged.
+
 ### Fixes
 
+- Caller-buffer decompression now rejects trailing bytes after a zero-length
+  payload, matching the owned-output API.
 - Recursive mutable fields start without an allocated box, preventing infinite
   recursion during default and source-backed initialization. First access still
   materializes the field, and copies retain independent values.
 - Extracted absent message values can be serialized as canonical empty values.
 - Mutable serialization rejects excessive recursion, including recursive arrays,
   maps, empty checks, and untouched nested segments.
-- Large PerfectHash graphs allow up to 128 seed attempts instead of 16,
-  recovering a deterministic valid 256-key case that previously failed. The
-  retry budget remains finite; wire layout and successful earlier attempts are
-  unchanged.
+- PerfectHash construction uses a uniform limit of 40 seed attempts for all
+  graph sizes, reducing the large-graph limit from 128. Wire layout and
+  successful attempts within the limit are unchanged.
 
 ### Performance
 
@@ -28,6 +39,9 @@
   ranges keep the existing word loop; wire layout and ownership are unchanged.
 
 ### Validation
+
+- Added compression golden runs, mixed-payload round trips, zero-length error
+  checks, and byte-sequence varint boundaries across owned and reusable output.
 
 - Added executable recursive construction, copy isolation, concurrency, and
   recursion boundary tests.

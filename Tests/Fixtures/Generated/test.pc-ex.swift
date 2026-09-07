@@ -221,7 +221,7 @@ public struct Test_ArrMapMutable: _ProtoCacheMutableEncoding {
         guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _value == nil {
             return try _source.withBorrowedSpan { bytes in
-                if bytes.isEmpty { return Unit(inline: 5 << 28) }
+                if bytes.isEmpty { return Unit(inline: 1342177280) }
                 let wordCount = try Test_ArrMapView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }

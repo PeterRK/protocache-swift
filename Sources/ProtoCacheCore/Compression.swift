@@ -8,44 +8,17 @@ public enum Compression {
             let markerCount = input.count / 14 + (input.count % 14 == 0 ? 0 : 1)
             let capacity = headerCount + input.count + markerCount
             let output = UnsafeMutableRawPointer.allocate(byteCount: capacity, alignment: 1)
-            var outputPosition = 0
-
-            func write(_ byte: UInt8) {
-                output.storeBytes(of: byte, toByteOffset: outputPosition, as: UInt8.self)
-                outputPosition += 1
-            }
-
-            var length = input.count
-            while length & ~0x7f != 0 {
-                write(0x80 | UInt8(length & 0x7f))
-                length >>= 7
-            }
-            write(UInt8(length))
-
-            func copyLiteral(_ start: Int, _ end: Int) {
-                let count = end - start
-                output.advanced(by: outputPosition).copyMemory(
-                    from: input.baseAddress!.advanced(by: start), byteCount: count
+            var state = (pointer: output, count: 0)
+            compress(input, into: &state, writeByte: { state, byte in
+                state.pointer.storeBytes(of: byte, toByteOffset: state.count, as: UInt8.self)
+                state.count += 1
+            }, writeLiteral: { state, range in
+                state.pointer.advanced(by: state.count).copyMemory(
+                    from: input.baseAddress!.advanced(by: range.lowerBound), byteCount: range.count
                 )
-                outputPosition += count
-            }
-
-            var inputPosition = 0
-            while inputPosition < input.count {
-                let firstStart = inputPosition
-                let first = pickRun(input, position: &inputPosition)
-                if inputPosition == input.count {
-                    write(first)
-                    if first & 8 == 0 { copyLiteral(firstStart, inputPosition) }
-                    break
-                }
-                let secondStart = inputPosition
-                let second = pickRun(input, position: &inputPosition)
-                write(first | (second << 4))
-                if first & 8 == 0 { copyLiteral(firstStart, secondStart) }
-                if second & 8 == 0 { copyLiteral(secondStart, inputPosition) }
-            }
-            return Bytes(adopting: output, count: outputPosition)
+                state.count += range.count
+            })
+            return Bytes(adopting: output, count: state.count)
         }
     }
 
@@ -56,23 +29,40 @@ public enum Compression {
     public static func compress(_ source: UnsafeRawBufferPointer, into output: inout [UInt8]) {
         output.removeAll(keepingCapacity: true)
         guard !source.isEmpty else { return }
+        compress(source, into: &output, writeByte: { output, byte in
+            output.append(byte)
+        }, writeLiteral: { output, range in
+            for position in range { output.append(source[position]) }
+        })
+    }
+
+    @inline(__always)
+    private static func compress<Output>(
+        _ source: UnsafeRawBufferPointer,
+        into output: inout Output,
+        writeByte: (inout Output, UInt8) -> Void,
+        writeLiteral: (inout Output, Range<Int>) -> Void
+    ) {
         var length = source.count
-        while length & ~0x7f != 0 { output.append(0x80 | UInt8(length & 0x7f)); length >>= 7 }
-        output.append(UInt8(length))
+        while length & ~0x7f != 0 {
+            writeByte(&output, 0x80 | UInt8(length & 0x7f))
+            length >>= 7
+        }
+        writeByte(&output, UInt8(length))
         var position = 0
         while position < source.count {
             let firstStart = position
             let first = pickRun(source, position: &position)
             if position == source.count {
-                output.append(first)
-                if first & 8 == 0 { appendLiteral(source, firstStart, position, into: &output) }
+                writeByte(&output, first)
+                if first & 8 == 0 { writeLiteral(&output, firstStart..<position) }
                 break
             }
             let secondStart = position
             let second = pickRun(source, position: &position)
-            output.append(first | (second << 4))
-            if first & 8 == 0 { appendLiteral(source, firstStart, secondStart, into: &output) }
-            if second & 8 == 0 { appendLiteral(source, secondStart, position, into: &output) }
+            writeByte(&output, first | (second << 4))
+            if first & 8 == 0 { writeLiteral(&output, firstStart..<secondStart) }
+            if second & 8 == 0 { writeLiteral(&output, secondStart..<position) }
         }
     }
 
@@ -88,16 +78,7 @@ public enum Compression {
             }
             let pointer = UnsafeMutableRawPointer.allocate(byteCount: target, alignment: 4)
             do {
-                let sourceBase = raw.baseAddress!
-                let sourceCount = raw.count
-                var sourcePosition = bodyOffset
-                var outputPosition = 0
-                while sourcePosition < sourceCount {
-                    let mark = sourceBase.load(fromByteOffset: sourcePosition, as: UInt8.self); sourcePosition += 1
-                    try unpack(mark & 0x0f, source: sourceBase, sourceCount: sourceCount, sourcePosition: &sourcePosition, output: pointer, outputPosition: &outputPosition, target: target)
-                    try unpack(mark >> 4, source: sourceBase, sourceCount: sourceCount, sourcePosition: &sourcePosition, output: pointer, outputPosition: &outputPosition, target: target)
-                }
-                guard outputPosition == target else { throw ProtoCacheError.outputSizeMismatch }
+                try decompressBody(raw, from: bodyOffset, into: UnsafeMutableRawBufferPointer(start: pointer, count: target))
                 return Bytes(adopting: pointer, count: target)
             } catch {
                 pointer.deallocate()
@@ -119,16 +100,7 @@ public enum Compression {
         output.append(contentsOf: repeatElement(0, count: target))
         do {
             try output.withUnsafeMutableBytes { destination in
-                let sourceBase = source.baseAddress!
-                let sourceCount = source.count
-                var sourcePosition = bodyOffset
-                var outputPosition = 0
-                while sourcePosition < sourceCount {
-                    let mark = sourceBase.load(fromByteOffset: sourcePosition, as: UInt8.self); sourcePosition += 1
-                    try unpack(mark & 0x0f, source: sourceBase, sourceCount: sourceCount, sourcePosition: &sourcePosition, output: destination.baseAddress!, outputPosition: &outputPosition, target: target)
-                    try unpack(mark >> 4, source: sourceBase, sourceCount: sourceCount, sourcePosition: &sourcePosition, output: destination.baseAddress!, outputPosition: &outputPosition, target: target)
-                }
-                guard outputPosition == target else { throw ProtoCacheError.outputSizeMismatch }
+                try decompressBody(source, from: bodyOffset, into: destination)
             }
         } catch {
             output.removeAll(keepingCapacity: true)
@@ -148,8 +120,26 @@ public enum Compression {
         return UInt8(position - start)
     }
 
-    private static func appendLiteral(_ source: UnsafeRawBufferPointer, _ start: Int, _ end: Int, into output: inout [UInt8]) {
-        for position in start..<end { output.append(source[position]) }
+    private static func decompressBody(
+        _ source: UnsafeRawBufferPointer,
+        from bodyOffset: Int,
+        into output: UnsafeMutableRawBufferPointer
+    ) throws {
+        guard !output.isEmpty else {
+            guard bodyOffset == source.count else { throw ProtoCacheError.outputSizeMismatch }
+            return
+        }
+        let sourceBase = source.baseAddress!
+        let destination = output.baseAddress!
+        var sourcePosition = bodyOffset
+        var outputPosition = 0
+        while sourcePosition < source.count {
+            let mark = source[sourcePosition]
+            sourcePosition += 1
+            try unpack(mark & 0x0f, source: sourceBase, sourceCount: source.count, sourcePosition: &sourcePosition, output: destination, outputPosition: &outputPosition, target: output.count)
+            try unpack(mark >> 4, source: sourceBase, sourceCount: source.count, sourcePosition: &sourcePosition, output: destination, outputPosition: &outputPosition, target: output.count)
+        }
+        guard outputPosition == output.count else { throw ProtoCacheError.outputSizeMismatch }
     }
 
     private static func parseVarint(_ source: UnsafeRawBufferPointer) throws -> (Int, Int) {

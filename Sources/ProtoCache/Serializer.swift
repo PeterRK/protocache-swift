@@ -71,7 +71,6 @@ private func encode<M: Message>(
             layout: layout,
             buffer: buffer,
             depth: depth,
-            omitDefaults: true,
             units: units
         )
         try owned.traverse(visitor: &encoder)
@@ -95,8 +94,6 @@ private struct Encoder: Visitor {
         layout: _ProtoCacheLayout,
         buffer: _ProtoCacheBuffer,
         depth: Int,
-        omitDefaults: Bool,
-        keyFieldNumber: Int? = nil,
         units: UnsafeMutableBufferPointer<Unit>
     ) throws {
         guard layout.runtimeABI == 7 else {
@@ -111,8 +108,8 @@ private struct Encoder: Visitor {
         self.buffer = buffer
         self.depth = depth
         self.checkpoint = buffer.checkpoint
-        self.omitDefaults = omitDefaults
-        self.keyFieldNumber = keyFieldNumber
+        self.omitDefaults = true
+        self.keyFieldNumber = nil
         guard units.count == layout._fieldCount else {
             throw ProtoCacheError.invalidSchema("field scratch does not match \(layout.fullName)")
         }
@@ -150,17 +147,15 @@ private struct Encoder: Visitor {
         if layout.isAlias {
             guard let kind = layout._kind(1) else { throw ProtoCacheError.invalidSchema("alias has no field 1") }
             if !units[0].isEmpty { return Encoded(unit: units[0], isEmpty: false) }
+            let emptyHeader: UInt32
             switch kind {
-            case .array:
-                return Encoded(unit: try _ProtoCacheEncoding.array([], in: buffer, since: checkpoint), isEmpty: true)
-            case .map:
-                return Encoded(
-                    unit: try _ProtoCacheEncoding.map(keys: [], keyUnits: [], valueUnits: [], in: buffer, since: checkpoint),
-                    isEmpty: true
-                )
-            default:
-                throw ProtoCacheError.invalidSchema("alias field is not an array or map")
+            case .array(.scalar(.bool)): emptyHeader = 0
+            case .array(.scalar(.int64)), .array(.scalar(.uint64)), .array(.scalar(.double)): emptyHeader = 2
+            case .array: emptyHeader = 1
+            case .map: emptyHeader = 5 << 28
+            default: throw ProtoCacheError.invalidSchema("alias field is not an array or map")
             }
+            return Encoded(unit: Unit(inline: emptyHeader), isEmpty: true)
         }
         return Encoded(
             unit: try _ProtoCacheEncoding.message(units, in: buffer, since: checkpoint),

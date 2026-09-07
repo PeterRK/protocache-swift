@@ -32,7 +32,7 @@ extension Generator {
         return "    public init() { _source = .empty\(valueInitialization) }\n    public init(_ bytes: Bytes) { _source = bytes }\n"
     }
 
-    static func renderUntouchedSource(view: String, condition: String, emptyWord: String = "0") -> String {
+    static func renderUntouchedSource(view: String, condition: String, emptyWord: UInt32 = 0) -> String {
         var output = "        if \(condition) {\n"
         output += "            return try _source.withBorrowedSpan { bytes in\n"
         output += "                if bytes.isEmpty { return Unit(inline: \(emptyWord)) }\n"
@@ -102,8 +102,14 @@ extension Generator {
         output += "    public var value: \(type) {\n        mutating _read {\n            if _value == nil { _value = \(decoded) }\n            yield _value!\n        }\n        set { _value = newValue }\n        _modify {\n            if _value == nil { _value = \(decoded) }\n            yield &_value!\n        }\n    }\n"
         output += "    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n        if let value = _value { return value.isEmpty }\n        return _source.withView(\(view).self) { $0.isEmpty }\n    }\n"
         output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n"
-        let emptyWord = mapEntry(field, index: index) != nil ? "5 << 28" : field.type == .bool ? "0" : "1"
+        let emptyWord: UInt32 = mapEntry(field, index: index) != nil
+            ? 5 << 28
+            : scalarType(field.type)?.emptyArrayHeader ?? 1
         output += renderUntouchedSource(view: view, condition: "_value == nil", emptyWord: emptyWord)
+        if emptyWord == 2 {
+            // The generic Unit array encoder cannot infer a scalar width from no elements.
+            output += "        if _value!.isEmpty { return Unit(inline: 2) }\n"
+        }
         output += try renderContainer(
             field,
             value: "_value!",
@@ -222,10 +228,9 @@ extension Generator {
     ) throws -> String {
         if let entry = mapEntry(field, index: index) {
             let nestedIndent = indent + "    "
-            let nestedTarget = target == "return" ? "return" : target
             var output = "\(indent)\(target == "return" ? "return " : "")try \(value)._withDictionary { value in\n"
             output += "\(nestedIndent)let checkpoint = buffer.checkpoint\n"
-            output += "\(nestedIndent)\(nestedTarget) try _ProtoCacheEncoding.map(entryCount: value.count, in: buffer, since: checkpoint) { encodedEntries in\n"
+            output += "\(nestedIndent)\(target) try _ProtoCacheEncoding.map(entryCount: value.count, in: buffer, since: checkpoint) { encodedEntries in\n"
             output += "\(nestedIndent)    var entryIndex = 0\n"
             output += "\(nestedIndent)    for entry in value {\n"
             output += "\(nestedIndent)        encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: \(try encodeValue(entry.field[0], value: "entry.key", depth: elementDepth)), valueUnit: \(try encodeValue(entry.field[1], value: "entry.value", depth: elementDepth)))\n"

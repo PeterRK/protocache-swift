@@ -1,0 +1,2465 @@
+{
+  "date": "2026-09-07",
+  "base_revision": "512b806",
+  "toolchain": "Swift 6.3.3 (swift-6.3.3-RELEASE), release",
+  "cpu": "Intel Core Ultra 7 155H, CPU 2",
+  "notes": [
+    "Binary paths refer to the local evidence workspace; SHA-256 identifies each measured build.",
+    "bulk_large isolates bulk moves against an earlier correctness-fixed candidate; both predate the large-graph retry correction, which only affects counts above 255.",
+    "final_common compares the original revision using the same harness against the final candidate.",
+    "Performance timings apply to these workloads and host conditions, not all messages.",
+    "Raw stdout and full reports remain in /tmp/protocache-release; this archive retains each measured sample and checksum."
+  ],
+  "bulk_large": {
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "cpu_affinity": [
+      2
+    ],
+    "binaries": {
+      "baseline": {
+        "path": "/tmp/protocache-release/pre-bulk/Benchmark",
+        "sha256": "ce919d62908a73b4a8fa61bcccf13eb456ecb47e3300da54460d331e64067552"
+      },
+      "candidate": {
+        "path": "/home/rk/CLionProjects/protocache-swift/Benchmarks/.build/x86_64-unknown-linux-gnu/release/Benchmark",
+        "sha256": "ee840bef6a8d408d1905ab2746d8fbcc77e47c29b7f7e3c0cda6c04b1fa9d83b"
+      }
+    },
+    "parameters": {
+      "cases": [
+        "scale-map"
+      ],
+      "rounds": 9,
+      "loops": 10000,
+      "warmup": 100,
+      "count": 16,
+      "payload": 65536,
+      "cpu": 2
+    },
+    "summary": {
+      "scale-map": {
+        "baseline_ns": 1021905.7125,
+        "candidate_ns": 336386.1534,
+        "change_percent": -67.08246668109314,
+        "faster_pairs": 9,
+        "raw_ns": {
+          "baseline": [
+            1399243.7927,
+            965715.5123,
+            1030789.8447,
+            1021905.7125,
+            1105192.5061,
+            964732.5789,
+            962722.9606,
+            1071091.8469,
+            979011.0845
+          ],
+          "candidate": [
+            470656.9672,
+            442066.1788,
+            336386.1534,
+            280929.9443,
+            300844.1276,
+            285765.5775,
+            406354.6072,
+            389064.6438,
+            273601.9036
+          ]
+        },
+        "paired_change_percent": -67.36617506181375,
+        "raw_paired_change_percent": [
+          -66.36347649670013,
+          -54.223974538096485,
+          -67.36617506181375,
+          -72.50921089258516,
+          -72.77902936008698,
+          -70.37877814535574,
+          -57.79111708868492,
+          -63.6758841059198,
+          -72.05323740131769
+        ]
+      }
+    },
+    "sample_validation": [
+      {
+        "case": "scale-map",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 13992437927,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 4706569672,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 4420661788,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 9657155123,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 10307898447,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 3363861534,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 2809299443,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 10219057125,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 11051925061,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 3008441276,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 2857655775,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 9647325789,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 9627229606,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 4063546072,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 3890646438,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 10710918469,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 9790110845,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      },
+      {
+        "case": "scale-map",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "10491480000",
+            "elapsed_ns": 2736019036,
+            "loops": 10000,
+            "name": "scale-map",
+            "raw_bytes": 1049148
+          }
+        ]
+      }
+    ]
+  },
+  "final_common": {
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "cpu_affinity": [
+      2
+    ],
+    "binaries": {
+      "baseline": {
+        "path": "/tmp/protocache-release/baseline/Benchmarks/.build/x86_64-unknown-linux-gnu/release/Benchmark",
+        "sha256": "3dec18cd9a2841867bd93fb3515320b51dbc1c15723c03c422eb4156af072fdf"
+      },
+      "candidate": {
+        "path": "/home/rk/CLionProjects/protocache-swift/Benchmarks/.build/x86_64-unknown-linux-gnu/release/Benchmark",
+        "sha256": "edf9cc0b54a151b26ae9b72fa2999afaaea6135a3f5dc38595b59d5bccd1e595"
+      }
+    },
+    "parameters": {
+      "cases": null,
+      "rounds": 9,
+      "loops": 100000,
+      "warmup": 1000,
+      "count": 256,
+      "payload": 0,
+      "cpu": 2
+    },
+    "summary": {
+      "protocache": {
+        "baseline_ns": 226.58819,
+        "candidate_ns": 226.83207,
+        "paired_change_percent": 0.05189743734639318,
+        "raw_paired_change_percent": [
+          0.05189743734639318,
+          1.036662587773618,
+          -0.9990731938651853,
+          -0.06663189286255644,
+          -8.914423971528162,
+          -0.6822485970173875,
+          0.9859854982283922,
+          0.4226096190461437,
+          0.20874057013320346
+        ],
+        "change_percent": 0.10763138184739507,
+        "faster_pairs": 4,
+        "raw_ns": {
+          "baseline": [
+            222.26531,
+            224.44815,
+            227.54489,
+            226.58819,
+            249.17527,
+            229.76229,
+            225.23455,
+            225.87749,
+            227.48333
+          ],
+          "candidate": [
+            222.38066,
+            226.77492,
+            225.27155,
+            226.43721,
+            226.96273,
+            228.19474,
+            227.45533,
+            226.83207,
+            227.95818
+          ]
+        }
+      },
+      "protocache-ex": {
+        "baseline_ns": 2855.83661,
+        "candidate_ns": 2853.9239,
+        "paired_change_percent": 1.1347715477209253,
+        "raw_paired_change_percent": [
+          -2.760534038385498,
+          -9.40299772718346,
+          -2.2077105463624513,
+          -0.3306215056889994,
+          1.2597772163153165,
+          1.8484790105356197,
+          1.9852398783753111,
+          1.6452889776225277,
+          1.1347715477209253
+        ],
+        "change_percent": -0.06697547028085005,
+        "faster_pairs": 4,
+        "raw_ns": {
+          "baseline": [
+            2884.90049,
+            3190.08149,
+            3013.98071,
+            2855.83661,
+            2785.11149,
+            2834.32864,
+            2863.75418,
+            2807.72865,
+            2814.97717
+          ],
+          "candidate": [
+            2805.26183,
+            2890.1182,
+            2947.44074,
+            2846.3946,
+            2820.19769,
+            2886.72061,
+            2920.60657,
+            2853.9239,
+            2846.92073
+          ]
+        }
+      },
+      "protocache-serialize": {
+        "baseline_ns": 9551.25038,
+        "candidate_ns": 9457.76722,
+        "paired_change_percent": -0.7819935897554475,
+        "raw_paired_change_percent": [
+          -1.0958743314122277,
+          -0.9079775212320951,
+          -0.21731268041260687,
+          -0.7819935897554475,
+          0.28387444233060055,
+          -2.0209702637907445,
+          -0.2758319190374614,
+          -0.061967734817969244,
+          -1.4797796125103235
+        ],
+        "change_percent": -0.9787531085537315,
+        "faster_pairs": 8,
+        "raw_ns": {
+          "baseline": [
+            9562.56087,
+            9434.19501,
+            9439.20988,
+            9554.19085,
+            9501.76063,
+            9551.25038,
+            9689.41524,
+            9628.2364,
+            9474.32907
+          ],
+          "candidate": [
+            9457.76722,
+            9348.53464,
+            9418.69728,
+            9479.47769,
+            9528.7337,
+            9358.22245,
+            9662.68874,
+            9622.27,
+            9334.12988
+          ]
+        }
+      },
+      "protocache-fully": {
+        "baseline_ns": 3997.5321,
+        "candidate_ns": 3936.94949,
+        "paired_change_percent": -0.8492946281827174,
+        "raw_paired_change_percent": [
+          -2.4680813781697397,
+          -1.7782243699806743,
+          -0.8492946281827174,
+          0.8648434533442995,
+          -1.1721536609763716,
+          0.0933611823376701,
+          -0.45026693811751617,
+          -4.05460978605543,
+          -0.1770466590361508
+        ],
+        "change_percent": -1.5155002757826441,
+        "faster_pairs": 7,
+        "raw_ns": {
+          "baseline": [
+            3981.14385,
+            3997.5321,
+            4001.82915,
+            3945.38802,
+            3979.99866,
+            4015.05198,
+            4016.29977,
+            4067.94855,
+            3943.93209
+          ],
+          "candidate": [
+            3882.88598,
+            3926.44701,
+            3967.84183,
+            3979.50945,
+            3933.34696,
+            4018.80048,
+            3998.2157,
+            3903.00911,
+            3936.94949
+          ]
+        }
+      },
+      "protocache-partly": {
+        "baseline_ns": 666.86668,
+        "candidate_ns": 662.50398,
+        "paired_change_percent": -0.7837021584758741,
+        "raw_paired_change_percent": [
+          -1.0686203786746895,
+          -2.695796466600464,
+          0.25725933862386086,
+          -0.3443278571134689,
+          -0.7837021584758741,
+          0.24478163185985835,
+          -0.10105966064009042,
+          -1.1954038549354284,
+          -2.131732893257232
+        ],
+        "change_percent": -0.6542087242985439,
+        "faster_pairs": 7,
+        "raw_ns": {
+          "baseline": [
+            663.27483,
+            673.34757,
+            660.804,
+            677.69132,
+            669.66512,
+            663.91828,
+            666.19064,
+            666.86668,
+            670.76884
+          ],
+          "candidate": [
+            656.18694,
+            655.19549,
+            662.50398,
+            675.35784,
+            664.41694,
+            665.54343,
+            665.51739,
+            658.89493,
+            656.46984
+          ]
+        }
+      },
+      "pc-compress": {
+        "baseline_ns": 916.74149,
+        "candidate_ns": 911.33102,
+        "paired_change_percent": -0.36622698733094206,
+        "raw_paired_change_percent": [
+          -2.533332763539242,
+          -0.6241214630519742,
+          1.091798884842432,
+          -0.322140046356012,
+          -1.512071320336017,
+          -0.6721638037142208,
+          6.862088242564424,
+          1.9375173235662846,
+          -0.36622698733094206
+        ],
+        "change_percent": -0.5901849167969986,
+        "faster_pairs": 6,
+        "raw_ns": {
+          "baseline": [
+            919.63047,
+            916.60203,
+            911.90879,
+            914.27627,
+            921.7343,
+            916.21268,
+            916.74149,
+            918.04134,
+            919.05843
+          ],
+          "candidate": [
+            896.33317,
+            910.88132,
+            921.865,
+            911.33102,
+            907.79702,
+            910.05423,
+            979.6491,
+            935.82855,
+            915.69259
+          ]
+        }
+      },
+      "pc-decompress": {
+        "baseline_ns": 407.729,
+        "candidate_ns": 412.6844,
+        "paired_change_percent": 1.1671306186216812,
+        "raw_paired_change_percent": [
+          -0.5371990603396992,
+          1.1671306186216812,
+          -5.2226607565506455,
+          1.3273744722990477,
+          0.5148702794200988,
+          0.9691268624333338,
+          1.4796630406452849,
+          1.4650511826469925,
+          2.943198306754047
+        ],
+        "change_percent": 1.215366088750125,
+        "faster_pairs": 2,
+        "raw_ns": {
+          "baseline": [
+            405.78068,
+            407.729,
+            435.42518,
+            408.62395,
+            406.12754,
+            406.32864,
+            429.52955,
+            413.72616,
+            407.11392
+          ],
+          "candidate": [
+            403.60083,
+            412.48773,
+            412.6844,
+            414.04792,
+            408.21857,
+            410.26648,
+            435.88514,
+            419.78746,
+            419.09609
+          ]
+        }
+      }
+    },
+    "fixture": {
+      "path": "/tmp/protocache-release/release-final-ab.pc",
+      "sha256": "85faa4d0502793f98586a5c8a81033b793d0f8ff3cf96b1241166bd3cdcf5211"
+    },
+    "sample_validation": [
+      {
+        "case": "protocache",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22226531,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22238066,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22677492,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22444815,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22754489,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22527155,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22643721,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22658819,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 24917527,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22696273,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22819474,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22976229,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22523455,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22745533,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22683207,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22587749,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22748333,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 22795818,
+            "loops": 100000,
+            "name": "protocache",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 288490049,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 280526183,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 289011820,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749968622956032",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 319008149,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749968622956032",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 301398071,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 294744074,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749968622956032",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 284639460,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 285583661,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 278511149,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749968622956032",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 282019769,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 288672061,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 283432864,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 286375418,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 292060657,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 285392390,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 280772865,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749968622956032",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 281497717,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-ex",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "accumulated_checksum": "1450749967549214208",
+            "checksum": "4752341897907829168",
+            "elapsed_ns": 284692073,
+            "loops": 100000,
+            "name": "protocache-ex",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 956256087,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 945776722,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 934853464,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 943419501,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 943920988,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 941869728,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 947947769,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 955419085,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 950176063,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 952873370,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 935822245,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 955125038,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 968941524,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 966268874,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 962227000,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 962823640,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 947432907,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-serialize",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 933412988,
+            "loops": 100000,
+            "name": "protocache-serialize"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 398114385,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 388288598,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 392644701,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 399753210,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 400182915,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 396784183,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 397950945,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 394538802,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 397999866,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 393334696,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 401880048,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 401505198,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 401629977,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 399821570,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 390300911,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 406794855,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 394393209,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-fully",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 393694949,
+            "loops": 100000,
+            "name": "protocache-fully"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66327483,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 65618694,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 65519549,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 67334757,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66080400,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66250398,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 67535784,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 67769132,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66966512,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66441694,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66554343,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66391828,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66619064,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66551739,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 65889493,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 66686668,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 67076884,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "protocache-partly",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "19500000",
+            "elapsed_ns": 65646984,
+            "loops": 100000,
+            "name": "protocache-partly"
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 1,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91963047,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40578068,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 1,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 89633317,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40360083,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 2,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91088132,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41248773,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 2,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91660203,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40772900,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 3,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91190879,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 43542518,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 3,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 92186500,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41268440,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 4,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91133102,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41404792,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 4,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91427627,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40862395,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 5,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 92173430,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40612754,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 5,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 90779702,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40821857,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 6,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91005423,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41026648,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 6,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91621268,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40632864,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 7,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91674149,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 42952955,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 7,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 97964910,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 43588514,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 8,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 93582855,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41978746,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 8,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91804134,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41372616,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 9,
+        "variant": "baseline",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91905843,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 40711392,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      },
+      {
+        "case": "pc-compress",
+        "round": 9,
+        "variant": "candidate",
+        "returncode": 0,
+        "measurements": [
+          {
+            "checksum": "780",
+            "elapsed_ns": 91569259,
+            "loops": 100000,
+            "name": "pc-compress",
+            "raw_bytes": 780
+          },
+          {
+            "checksum": "780",
+            "elapsed_ns": 41909609,
+            "loops": 100000,
+            "name": "pc-decompress",
+            "raw_bytes": 780
+          }
+        ]
+      }
+    ]
+  },
+  "discovered_retry_failure": {
+    "parameters": {
+      "cases": [
+        "scale-map",
+        "scale-dynamic"
+      ],
+      "rounds": 7,
+      "loops": 1000,
+      "warmup": 100,
+      "count": 256,
+      "payload": 64,
+      "cpu": 2
+    },
+    "binaries": {
+      "baseline": {
+        "path": "/tmp/protocache-release/pre-bulk/Benchmark",
+        "sha256": "ce919d62908a73b4a8fa61bcccf13eb456ecb47e3300da54460d331e64067552"
+      },
+      "candidate": {
+        "path": "/home/rk/CLionProjects/protocache-swift/Benchmarks/.build/x86_64-unknown-linux-gnu/release/Benchmark",
+        "sha256": "513ae7a5446c5279b1d35825a6cf1bad649220e8676a0050b9e76695136defa4"
+      }
+    },
+    "error": "unable to construct perfect hash",
+    "reproducer": "Int32 little-endian keys 0..<256, initialSeed 71; former 16 attempts fail",
+    "resolution": "Raise large-graph attempt limit to 128; deterministic regression test covers 255, 256, 257, 1024 keys."
+  },
+  "final_source_sha256": {
+    "Sources/ProtoCache/Serializer.swift": "39aa3302a56253a49cb72f22026123293d949896b0c057bc7d18ee6683b7a7b0",
+    "Sources/ProtoCacheCore/Compression.swift": "56fa294af7391126e7860c456598d097398d6533c63a6ddbcc022d29c9985857",
+    "Sources/ProtoCacheCore/Encoding.swift": "2b49b8892b60534769035d184873bc65504eccb58822fe2f60bbedffcd043a2b",
+    "Sources/ProtoCacheCore/Errors.swift": "af4785961cdc76d6316b918d00c5bcaf79c13dca566b790116c5b0d8caa2a496",
+    "Sources/ProtoCacheCore/Generated.swift": "98f6ef47ce93d2f50102fb0e59096eaa0f09eae33a215f01faf4c221ed8d5445",
+    "Sources/ProtoCacheCore/Hash.swift": "a9fd36dc27fb3639ef0be0fbee235489176b55e3de279a0b799243e5c28be7d1",
+    "Sources/ProtoCacheCore/Mutable.swift": "1a17d74c3d0846b0ca049dcd02fd5d531adbfb0d293ab00e279f991aa3b5bb01",
+    "Sources/ProtoCacheCore/MutableMap.swift": "4d571564c1e535777144ebfa31e7ce7b745096fe35f789fa765358b0eb2ae136",
+    "Sources/ProtoCacheCore/PerfectHash.swift": "b16281f500c4bf8944b639f361b9bec1f213d603e7bf6ad0d007bddc5c1e89bd",
+    "Sources/ProtoCacheCore/Scalar.swift": "ec17933ed638ba2325c10f9f3b3eb3905810353e688320636b589e756f1b62bb",
+    "Sources/ProtoCacheCore/Storage.swift": "0314a1db60ac9856660cf771908bba4acbed54e5d85e152a5407651ba550f800",
+    "Sources/ProtoCacheCore/Views.swift": "e61056b79b9d5563165a72d5a478ab415395587ecc3d86e57f81ea6663f8c48d",
+    "Sources/ProtoCacheGenerator/Generator.swift": "e655a673f081d1db41f931ade03dd9a19e9db7a22319129381e349f2798c2234",
+    "Sources/ProtoCacheGenerator/MutableGenerator.swift": "5476f79df0eae567a04611cacda87af963687df9132eb98cf1982dd4d4a77090",
+    "Sources/ProtoCacheGenerator/ReadonlyGenerator.swift": "60dde3995e2e266a99b77515f082a884d0989a64915a2d97ce3d529689558638",
+    "Sources/ProtoCacheGenerator/Schema.swift": "e1107a285f047fc9defa3d9b33223b84374de358554f5e0537ad63859a8e7ad7",
+    "Sources/ProtoCacheGenerator/WireDetection.swift": "f9e5b8d16f39474a5ea6785ab2ed7fab834d8a2aec1b53c48fa4ba75135b9d22",
+    "Sources/ProtoCacheGeneratorCLI/main.swift": "00346e63b98a21ffc571beff0c291510a3a9a3ea2be0e089707d09a050d6c22e",
+    "Benchmarks/Sources/Benchmark/Generated/test.pb.swift": "9557045ec4983af690cedf56ab8146b98df4a434b1df184bd6c0a8f8027152a1",
+    "Benchmarks/Sources/Benchmark/Generated/test.pc-ex.swift": "dfac98d5c8ae0807b3856ea4ebc2cc61c74dca9ad280ca7a35a788f8cb4cb86c",
+    "Benchmarks/Sources/Benchmark/Generated/test.pc.swift": "67a8dc3c8911fccca9edb7115f07faa1ec4fc15d5589185b45dcda3d09ff08bc",
+    "Benchmarks/Sources/Benchmark/Generated/test_generated.swift": "c97ab481e1882639994acb98af0db31d2af7cedc0a1eb48ef913ac582485f6bc",
+    "Benchmarks/Sources/Benchmark/Measurement.swift": "c09361385847ed5b6730ff457f82d42e984a6c5a6017f8c16a4a46a72f5168ae",
+    "Benchmarks/Sources/Benchmark/Scale.swift": "15f4dc78be2e3c0ff92e1dc1967aeb478f4a7cc137713e20223430c1251f6ecf",
+    "Benchmarks/Sources/Benchmark/main.swift": "91ef3cb8e44a469517aa6359b566a2f50b64a85779bd16d65900586b0247a1a9"
+  }
+}

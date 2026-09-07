@@ -116,3 +116,65 @@ private final class DeallocationCounter: @unchecked Sendable {
         try bytes.withBorrowedSpan { try _ProtoCacheEncoding._detectMapBaseWords($0) }
     }
 }
+
+@Test func compressionFormatsMatchGoldenRunsAcrossOutputModes() throws {
+    let cases: [([UInt8], [UInt8])] = [
+        ([0], [1, 0x08]),
+        ([0xff], [1, 0x0c]),
+        ([1], [1, 1, 1]),
+        ([0, 0, 0, 0], [4, 0x0b]),
+        ([0xff, 0xff, 0xff, 0xff], [4, 0x0f]),
+        ([0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff], [8, 0xfb]),
+        (Array(1...14), [14, 0x77] + Array(1...14)),
+        ([UInt8](repeating: 0, count: 127), [127] + [UInt8](repeating: 0xbb, count: 15) + [0xab]),
+        ([UInt8](repeating: 0, count: 128), [0x80, 1] + [UInt8](repeating: 0xbb, count: 16)),
+    ]
+    var packed: [UInt8] = []
+    var unpacked: [UInt8] = []
+    for (raw, encoded) in cases {
+        let source = Bytes(copying: raw)
+        #expect(Compression.compress(source).withUnsafeBytes { Array($0) } == encoded)
+        Compression.compress(source, into: &packed)
+        #expect(packed == encoded)
+        let golden = Bytes(copying: encoded)
+        #expect(try Compression.decompress(golden) == source)
+        try Compression.decompress(golden, into: &unpacked)
+        #expect(unpacked == raw)
+    }
+}
+
+@Test func compressionOutputModesRoundTripMixedPayloads() throws {
+    var state: UInt32 = 0x12345678
+    var packed: [UInt8] = []
+    var unpacked: [UInt8] = []
+    for length in [1, 3, 4, 7, 8, 14, 15, 127, 128, 255, 1024, 16383, 16384] {
+        let raw: [UInt8] = (0..<length).map { index in
+            state = state &* 1664525 &+ 1013904223
+            switch index % 19 {
+            case 0...3: return 0
+            case 4...7: return 0xff
+            default: return UInt8(truncatingIfNeeded: state >> 24)
+            }
+        }
+        let source = Bytes(copying: raw)
+        let encoded = Compression.compress(source)
+        Compression.compress(source, into: &packed)
+        #expect(encoded.withUnsafeBytes { Array($0) } == packed)
+        #expect(try Compression.decompress(encoded) == source)
+        try Compression.decompress(encoded, into: &unpacked)
+        #expect(unpacked == raw)
+    }
+}
+
+@Test func zeroLengthCompressedPayloadRejectsTrailingBytesInBothModes() throws {
+    var output: [UInt8] = [1, 2, 3]
+    try Compression.decompress(Bytes(copying: [0]), into: &output)
+    #expect(output.isEmpty)
+    #expect(try Compression.decompress(Bytes(copying: [0])) == Bytes.empty)
+    for raw: [UInt8] in [[0, 0], [0, 8], [0, 1, 1]] {
+        let bytes = Bytes(copying: raw)
+        #expect(throws: ProtoCacheError.outputSizeMismatch) { try Compression.decompress(bytes) }
+        #expect(throws: ProtoCacheError.outputSizeMismatch) { try Compression.decompress(bytes, into: &output) }
+        #expect(output.isEmpty)
+    }
+}

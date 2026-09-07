@@ -38,13 +38,13 @@ extension Generator {
         source: String,
         depth: String
     ) throws -> String {
+        if let scalar = scalarType(field.type) { return String(scalar.wordWidth) }
         switch field.type {
         case .string, .bytes:
             return "try _ProtoCacheEncoding._detectStringWords(\(source))"
         case .message:
             return "try \(swiftType(field.typeName))View._detectProtoCacheWords(\(source), depth: \(depth))"
-        case .double, .float, .int64, .uint64, .int32, .uint32, .fixed64, .fixed32,
-             .bool, .enum, .sfixed32, .sfixed64, .sint32, .sint64:
+        case .enum:
             return "1"
         default:
             throw GenError.schema("unsupported field type \(field.type)")

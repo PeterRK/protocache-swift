@@ -372,6 +372,14 @@ public struct BoolArrayView: ~Escapable, Copyable, @unchecked Sendable {
     @_lifetime(copy bytes)
     public init(_ bytes: BytesView) { self.bytes = bytes }
 
+    @_lifetime(copy encoded)
+    public init(encoded: Span) { bytes = StringView(encoded).rawBytes }
+
+    public var _protoCacheSpan: Span {
+        @_lifetime(copy self)
+        borrowing get { bytes.bytes }
+    }
+
     public static var empty: BoolArrayView {
         @_lifetime(immortal)
         get { BoolArrayView(.empty) }

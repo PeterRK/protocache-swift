@@ -1,0 +1,14 @@
+syntax = "proto3";
+package test;
+
+message Int64List {
+  repeated int64 _ = 1;
+}
+
+message UInt64List {
+  repeated uint64 _ = 1;
+}
+
+message DoubleList {
+  repeated double _ = 1;
+}

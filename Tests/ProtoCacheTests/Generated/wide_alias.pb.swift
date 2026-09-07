@@ -1,0 +1,1 @@
+../../Fixtures/Generated/wide_alias.pb.swift

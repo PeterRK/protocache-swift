@@ -129,11 +129,6 @@ public final class _ProtoCacheBuffer {
 
     func put(_ word: UInt32) { expand(1)[0] = word }
 
-    func put(_ words: [UInt32]) {
-        let destination = expand(words.count)
-        for index in words.indices { destination[index] = words[index] }
-    }
-
     func activeWord(_ index: Int) -> UInt32 {
         precondition(index >= 0 && index < count)
         return pointer![start + index]
@@ -235,11 +230,7 @@ public final class _ProtoCacheBuffer {
     }
 
     public func finish(_ root: Unit) throws -> Bytes {
-        if root.inlineCount > 0 {
-            let destination = expand(root.inlineCount)
-            for index in 0..<root.inlineCount { destination[index] = root.inlineWord(index) }
-        }
-        guard root.count > 0 else { throw ProtoCacheError.invalidHeader }
+        try writeRoot(root)
         let base = pointer!
         let byteOffset = start * 4
         let byteCount = count * 4
@@ -258,16 +249,21 @@ public final class _ProtoCacheBuffer {
         _ root: Unit,
         _ body: (borrowing Span) throws -> Result
     ) throws -> Result {
-        if root.inlineCount > 0 {
-            let destination = expand(root.inlineCount)
-            for index in 0..<root.inlineCount { destination[index] = root.inlineWord(index) }
-        }
-        guard root.count > 0 else { throw ProtoCacheError.invalidHeader }
+        try writeRoot(root)
         let bytes = UnsafeRawBufferPointer(
             start: pointer!.advanced(by: start),
             count: count * MemoryLayout<UInt32>.stride
         )
         return try body(Span(unsafeBorrowing: bytes))
+    }
+
+    @inline(__always)
+    private func writeRoot(_ root: Unit) throws {
+        if root.inlineCount > 0 {
+            let destination = expand(root.inlineCount)
+            for index in 0..<root.inlineCount { destination[index] = root.inlineWord(index) }
+        }
+        guard !root.isEmpty else { throw ProtoCacheError.invalidHeader }
     }
 
     private func grow(minimum: Int) {
@@ -295,8 +291,22 @@ public enum _ProtoCacheEncoding {
     }
 
     public static func bytes(_ source: UnsafeRawBufferPointer, in buffer: _ProtoCacheBuffer) throws -> Unit {
-        guard source.count < 1 << 30 else { throw ProtoCacheError.integerOverflow }
-        var value = UInt32(source.count) << 2
+        try byteSequence(count: source.count, in: buffer) { destination in
+            if !source.isEmpty {
+                destination.baseAddress!.copyMemory(from: source.baseAddress!, byteCount: source.count)
+            }
+        }
+    }
+
+    /// Strings, bytes and bool arrays share the same length header and padding.
+    @inline(__always)
+    private static func byteSequence(
+        count: Int,
+        in buffer: _ProtoCacheBuffer,
+        writePayload: (UnsafeMutableRawBufferPointer) -> Void
+    ) throws -> Unit {
+        guard count < 1 << 30 else { throw ProtoCacheError.integerOverflow }
+        var value = UInt32(count) << 2
         var header: UInt64 = 0
         var headerCount = 0
         repeat {
@@ -305,32 +315,21 @@ public enum _ProtoCacheEncoding {
             header |= UInt64(byte) << UInt64(headerCount * 8)
             headerCount += 1
         } while value != 0
-        let wordCount = (headerCount + source.count + 3) / 4
+        let wordCount = (headerCount + count + 3) / 4
         if wordCount == 1 {
-            var word = UInt32(truncatingIfNeeded: header)
+            var word = UInt32(truncatingIfNeeded: header).littleEndian
             withUnsafeMutableBytes(of: &word) { destination in
-                if source.count > 0 {
-                    destination.baseAddress!.advanced(by: headerCount).copyMemory(
-                        from: source.baseAddress!,
-                        byteCount: source.count
-                    )
-                }
+                writePayload(UnsafeMutableRawBufferPointer(rebasing: destination[headerCount..<(headerCount + count)]))
             }
             return Unit(inline: UInt32(littleEndian: word))
         }
         let previous = buffer.count
         let words = buffer.expand(wordCount)
         let raw = UnsafeMutableRawBufferPointer(start: words.baseAddress, count: wordCount * 4)
-        raw.initializeMemory(as: UInt8.self, repeating: 0)
         for index in 0..<headerCount {
             raw[index] = UInt8(truncatingIfNeeded: header >> UInt64(index * 8))
         }
-        if source.count > 0 {
-            raw.baseAddress!.advanced(by: headerCount).copyMemory(
-                from: source.baseAddress!,
-                byteCount: source.count
-            )
-        }
+        writePayload(UnsafeMutableRawBufferPointer(rebasing: raw[headerCount..<(headerCount + count)]))
         return Unit(segment: .init(position: buffer.count, count: buffer.count - previous))
     }
 
@@ -338,58 +337,6 @@ public enum _ProtoCacheEncoding {
         try value.utf8.withContiguousStorageIfAvailable { storage in
             try bytes(UnsafeRawBufferPointer(storage), in: buffer)
         } ?? Array(value.utf8).withUnsafeBytes { try bytes($0, in: buffer) }
-    }
-
-    public static func copy(
-        _ field: FieldView,
-        kind: _ProtoCacheFieldKind,
-        in buffer: _ProtoCacheBuffer
-    ) throws -> Unit {
-        let raw = field.rawBytes
-        switch kind {
-        case .scalar, .enumeration:
-            return inlineUnit(raw, width: field.width)
-        default:
-            break
-        }
-        guard raw.loadUInt32(wordOffset: 0) & 3 == 3 else {
-            return inlineUnit(raw, width: field.width)
-        }
-        let source = field.objectBytes
-        let words = try encodedWordCount(source, kind: kind, depth: 0)
-        return try embedded(source.slice(byteOffset: 0, count: words * 4), in: buffer)
-    }
-
-    private static func encodedWordCount(
-        _ bytes: Span,
-        kind: _ProtoCacheFieldKind,
-        depth: Int
-    ) throws -> Int {
-        guard depth <= 100, bytes.count >= 4 else { throw ProtoCacheError.invalidHeader }
-        switch kind {
-        case .scalar(let scalar):
-            switch scalar {
-            case .int64, .uint64, .double: return 2
-            default: return 1
-            }
-        case .enumeration:
-            return 1
-        case .string, .bytes:
-            return try stringWordCount(bytes)
-        case .message(let nested):
-            let layout = nested()
-            if layout.isAlias {
-                guard let field = layout.fields.first(where: { $0.number == 1 }) else {
-                    throw ProtoCacheError.invalidHeader
-                }
-                return try encodedWordCount(bytes, kind: field.kind, depth: depth + 1)
-            }
-            return try messageWordCount(bytes, layout: layout, depth: depth + 1)
-        case .array(let element):
-            return try arrayWordCount(bytes, element: element, depth: depth + 1)
-        case .map(let key, let value):
-            return try mapWordCount(bytes, key: key, value: value, depth: depth + 1)
-        }
     }
 
     private static func stringWordCount(_ bytes: Span) throws -> Int {
@@ -411,130 +358,6 @@ public enum _ProtoCacheEncoding {
         let length = mark >> 2
         guard used + length <= bytes.count else { throw ProtoCacheError.invalidHeader }
         return (used + length + 3) / 4
-    }
-
-    private static func messageWordCount(
-        _ bytes: Span,
-        layout: _ProtoCacheLayout,
-        depth: Int
-    ) throws -> Int {
-        let head = bytes.loadUInt32(wordOffset: 0)
-        let sectionCount = Int(head & 0xff)
-        let headWords = 1 + sectionCount * 2
-        guard headWords <= bytes.count / 4 else { throw ProtoCacheError.invalidHeader }
-
-        var bodyWords = 0
-        for index in 0..<12 {
-            bodyWords += Int((head >> UInt32(8 + index * 2)) & 3)
-        }
-        for section in 0..<sectionCount {
-            let vector = bytes.loadUInt64(wordOffset: 1 + section * 2)
-            for index in 0..<25 {
-                bodyWords += Int((vector >> UInt64(index * 2)) & 3)
-            }
-        }
-
-        var total = headWords + bodyWords
-        guard total <= bytes.count / 4 else { throw ProtoCacheError.invalidHeader }
-        let view = MessageView(bytes)
-        for layoutField in layout.fields where hasReferencedObject(layoutField.kind) {
-            guard let field = view.field(layoutField.number - 1) else { continue }
-            total = max(total, try referencedEnd(
-                field,
-                in: bytes,
-                kind: layoutField.kind,
-                depth: depth
-            ))
-        }
-        return total
-    }
-
-    private static func arrayWordCount(
-        _ bytes: Span,
-        element: _ProtoCacheFieldKind,
-        depth: Int
-    ) throws -> Int {
-        let head = bytes.loadUInt32(wordOffset: 0)
-        let count = Int(head >> 2)
-        let width = Int(head & 3)
-        guard width > 0 else { throw ProtoCacheError.invalidHeader }
-        var total = 1 + count * width
-        guard total <= bytes.count / 4 else { throw ProtoCacheError.invalidHeader }
-        switch element {
-        case .scalar, .enumeration:
-            return total
-        default:
-            break
-        }
-        for index in 0..<count {
-            let field = FieldView(tail: bytes.wordSlice(offset: 1 + index * width), width: width)
-            total = max(total, try referencedEnd(field, in: bytes, kind: element, depth: depth))
-        }
-        return total
-    }
-
-    private static func mapWordCount(
-        _ bytes: Span,
-        key: _ProtoCacheFieldKind,
-        value: _ProtoCacheFieldKind,
-        depth: Int
-    ) throws -> Int {
-        let head = bytes.loadUInt32(wordOffset: 0)
-        let count = Int(head & 0x0fff_ffff)
-        let keyWidth = Int((head >> 30) & 3)
-        let valueWidth = Int((head >> 28) & 3)
-        guard keyWidth > 0, valueWidth > 0 else { throw ProtoCacheError.invalidHeader }
-        let indexWords = (PerfectHashView(bytes).byteCount + 3) / 4
-        let pairWidth = keyWidth + valueWidth
-        var total = indexWords + count * pairWidth
-        guard total <= bytes.count / 4 else { throw ProtoCacheError.invalidHeader }
-        let keyHasReference = hasReferencedObject(key)
-        let valueHasReference = hasReferencedObject(value)
-        if !keyHasReference && !valueHasReference { return total }
-        for index in 0..<count {
-            let pairStart = indexWords + index * pairWidth
-            if keyHasReference {
-                let field = FieldView(tail: bytes.wordSlice(offset: pairStart), width: keyWidth)
-                total = max(total, try referencedEnd(field, in: bytes, kind: key, depth: depth))
-            }
-            if valueHasReference {
-                let field = FieldView(
-                    tail: bytes.wordSlice(offset: pairStart + keyWidth),
-                    width: valueWidth
-                )
-                total = max(total, try referencedEnd(field, in: bytes, kind: value, depth: depth))
-            }
-        }
-        return total
-    }
-
-    @inline(__always)
-    private static func hasReferencedObject(_ kind: _ProtoCacheFieldKind) -> Bool {
-        switch kind {
-        case .scalar, .enumeration: false
-        default: true
-        }
-    }
-
-    private static func referencedEnd(
-        _ field: FieldView,
-        in root: Span,
-        kind: _ProtoCacheFieldKind,
-        depth: Int
-    ) throws -> Int {
-        switch kind {
-        case .scalar, .enumeration:
-            return 0
-        default:
-            break
-        }
-        let first = field.rawBytes.loadUInt32(wordOffset: 0)
-        guard first & 3 == 3 else { return 0 }
-        let cell = root.rawBaseAddress.distance(to: field.tail.rawBaseAddress) / 4
-        let object = cell + Int(first >> 2)
-        guard object >= 0, object < root.count / 4 else { throw ProtoCacheError.invalidHeader }
-        let child = root.wordSlice(offset: object)
-        return object + (try encodedWordCount(child, kind: kind, depth: depth + 1))
     }
 
     public static func _copyInline(_ field: FieldView) -> Unit {
@@ -739,35 +562,9 @@ public enum _ProtoCacheEncoding {
     }
 
     public static func boolArray(_ values: [Bool], in buffer: _ProtoCacheBuffer) throws -> Unit {
-        guard values.count < 1 << 30 else { throw ProtoCacheError.integerOverflow }
-        var value = UInt32(values.count) << 2
-        var header: UInt64 = 0
-        var headerCount = 0
-        repeat {
-            var byte = UInt8(value & 0x7f); value >>= 7
-            if value != 0 { byte |= 0x80 }
-            header |= UInt64(byte) << UInt64(headerCount * 8)
-            headerCount += 1
-        } while value != 0
-        let wordCount = (headerCount + values.count + 3) / 4
-        if wordCount == 1 {
-            var word = UInt32(truncatingIfNeeded: header)
-            withUnsafeMutableBytes(of: &word) { destination in
-                for index in values.indices {
-                    destination[headerCount + index] = values[index] ? 1 : 0
-                }
-            }
-            return Unit(inline: UInt32(littleEndian: word))
+        try byteSequence(count: values.count, in: buffer) { destination in
+            for index in values.indices { destination[index] = values[index] ? 1 : 0 }
         }
-        let previous = buffer.count
-        let words = buffer.expand(wordCount)
-        let raw = UnsafeMutableRawBufferPointer(start: words.baseAddress, count: wordCount * 4)
-        raw.initializeMemory(as: UInt8.self, repeating: 0)
-        for index in 0..<headerCount {
-            raw[index] = UInt8(truncatingIfNeeded: header >> UInt64(index * 8))
-        }
-        for index in values.indices { raw[headerCount + index] = values[index] ? 1 : 0 }
-        return Unit(segment: .init(position: buffer.count, count: buffer.count - previous))
     }
 
     public static func byteArray(_ values: [UInt8], in buffer: _ProtoCacheBuffer) throws -> Unit {
