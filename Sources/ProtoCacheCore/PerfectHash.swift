@@ -138,7 +138,10 @@ public enum PerfectHash {
 
     static func section(for count: Int) -> Int { max(10, (count * 105 + 255) / 256) }
     static func bitmapSize(section: Int) -> Int { ((section * 3 + 31) & ~31) / 4 }
-    static func attemptLimit(for count: Int) -> Int { count <= Int(UInt8.max) ? 40 : 16 }
+    // A valid 256-key map can exhaust 16 seeds (for example initial seed 71
+    // with little-endian Int32 keys 0..<256). Keep retries bounded, but allow
+    // the large graph to recover without changing its wire representation.
+    static func attemptLimit(for count: Int) -> Int { count <= Int(UInt8.max) ? 40 : 128 }
 
     public static func build(_ keys: [[UInt8]]) throws -> (index: [UInt8], positions: [Int]) {
         try build(keys, initialSeed: nextSeed())

@@ -2,13 +2,22 @@ import Foundation
 import Testing
 import ProtoCacheCore
 
-private func fixtureBytes(_ name: String) throws -> Bytes? {
-    let source = URL(fileURLWithPath: #filePath)
+private func fixtureURL(_ name: String) -> URL {
+    URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .appendingPathComponent("Fixtures")
         .appendingPathComponent(name)
-    guard FileManager.default.fileExists(atPath: source.path) else { return nil }
+}
+
+private func runGoldenFixtures(_ names: [String]) -> Bool {
+    ProcessInfo.processInfo.environment["PROTOCACHE_REQUIRE_GOLDEN"] == "1"
+        || names.allSatisfy { FileManager.default.fileExists(atPath: fixtureURL($0).path) }
+}
+
+private func fixtureBytes(_ name: String) throws -> Bytes {
+    let source = fixtureURL(name)
+    try #require(FileManager.default.fileExists(atPath: source.path), "Required golden fixture missing: \(name)")
     let data = try Data(contentsOf: source)
     guard !data.isEmpty else { return .empty }
     let pointer = UnsafeMutableRawPointer.allocate(byteCount: data.count, alignment: 4)
@@ -16,8 +25,9 @@ private func fixtureBytes(_ name: String) throws -> Bytes? {
     return Bytes(adopting: pointer, count: data.count)
 }
 
-@Test func fixedGoldenFixtureReadsAllCompositeShapes() throws {
-    guard let bytes = try fixtureBytes("test.pc") else { return }
+@Test(.enabled(if: runGoldenFixtures(["test.pc"]), "Local cross-language fixture is absent"))
+func fixedGoldenFixtureReadsAllCompositeShapes() throws {
+    let bytes = try fixtureBytes("test.pc")
     #expect(bytes.count == 780)
     bytes.withView(Test_MainView.self) { view in
         #expect(view.i32 == -999)
@@ -41,12 +51,15 @@ private func fixtureBytes(_ name: String) throws -> Bytes? {
     }
 }
 
-@Test func fixedCompressedGoldenFixtureIsCompatible() throws {
-    guard let raw = try fixtureBytes("test.pc"),
-          let compressed = try fixtureBytes("test.pc.compressed") else { return }
+@Test(.enabled(if: runGoldenFixtures(["test.pc", "test.pc.compressed"]), "Local cross-language fixtures are absent"))
+func fixedCompressedGoldenFixtureIsCompatible() throws {
+    let raw = try fixtureBytes("test.pc")
+    let compressed = try fixtureBytes("test.pc.compressed")
     #expect(compressed.count == 574)
     let decoded = try Compression.decompress(compressed)
+    // These independent reference fixtures may use different PerfectHash seeds.
     #expect(decoded.count == raw.count)
+    #expect(Compression.compress(decoded) == compressed)
     decoded.withView(Test_MainView.self) { view in
         #expect(view.i32 == -999)
         #expect(view.index.position(for: "abc-1").map { view.index.value(at: $0) } == 1)

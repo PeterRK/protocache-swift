@@ -154,8 +154,15 @@ public final class _ProtoCacheBuffer {
         if unit.segmentCount == 0 { return true }
         let sourceOffset = count - unit.segmentPosition
         guard sourceOffset >= 0, sourceOffset + unit.segmentCount <= count else { return false }
-        for index in 0..<unit.segmentCount {
-            destination[destinationOffset + index] = activeWord(sourceOffset + index)
+        if unit.segmentCount >= 16 {
+            UnsafeMutableRawPointer(destination.baseAddress!.advanced(by: destinationOffset)).copyMemory(
+                from: pointer!.advanced(by: start + sourceOffset),
+                byteCount: unit.segmentCount * MemoryLayout<UInt32>.stride
+            )
+        } else {
+            for index in 0..<unit.segmentCount {
+                destination[destinationOffset + index] = activeWord(sourceOffset + index)
+            }
         }
         return true
     }
@@ -199,10 +206,20 @@ public final class _ProtoCacheBuffer {
         var source = sourceStart + length
         if tail > source {
             let destinationStart = tail - length
-            while tail > destinationStart {
-                tail -= 1
-                source -= 1
-                pointer![tail] = pointer![source]
+            if length >= 16 {
+                // Compaction can overlap its source. Raw copyMemory uses memmove.
+                UnsafeMutableRawPointer(pointer!.advanced(by: destinationStart)).copyMemory(
+                    from: pointer!.advanced(by: sourceStart),
+                    byteCount: length * MemoryLayout<UInt32>.stride
+                )
+                tail = destinationStart
+                source = sourceStart
+            } else {
+                while tail > destinationStart {
+                    tail -= 1
+                    source -= 1
+                    pointer![tail] = pointer![source]
+                }
             }
             unit.segmentPosition -= tail - source
         } else {

@@ -104,7 +104,7 @@ protoc \
 
 Generated files import only `ProtoCacheCore`. Commit them with the application
 sources and regenerate them whenever the ProtoCache generated runtime ABI
-changes. The current runtime ABI is `6`.
+changes. The current runtime ABI is `7`.
 
 ## Usage
 
@@ -252,6 +252,10 @@ creating a tag:
    commit and require every Linux/macOS/iOS job to pass;
 4. verify wire/compression compatibility with a C++ or Rust fixture;
 5. create an annotated Semantic Versioning tag such as `v0.1.0`.
+
+Local cross-language golden fixtures are optional for ordinary tests and are
+reported as skipped when absent. For release verification, use
+`PROTOCACHE_REQUIRE_GOLDEN=1 swift test` to require these fixtures.
 
 ## Security
 

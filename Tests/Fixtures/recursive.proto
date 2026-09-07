@@ -1,0 +1,17 @@
+syntax = "proto3";
+package test;
+
+// Recursive container edges and a direct self edge exercise different storage
+// layouts. These bindings deliberately depend on ProtoCacheCore only.
+message RecursiveTree {
+  int32 value = 1;
+  repeated RecursiveTree children = 2;
+  map<string, RecursiveTree> branches = 3;
+  RecursiveTree next = 4;
+  bytes padding = 5;
+  BooleanList flags = 6;
+}
+
+message BooleanList {
+  repeated bool _ = 1;
+}

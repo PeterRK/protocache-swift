@@ -32,10 +32,11 @@ extension Generator {
         return "    public init() { _source = .empty\(valueInitialization) }\n    public init(_ bytes: Bytes) { _source = bytes }\n"
     }
 
-    static func renderUntouchedSource(view: String, condition: String) -> String {
+    static func renderUntouchedSource(view: String, condition: String, emptyWord: String = "0") -> String {
         var output = "        if \(condition) {\n"
         output += "            return try _source.withBorrowedSpan { bytes in\n"
-        output += "                let wordCount = try \(view)._detectProtoCacheWords(bytes)\n"
+        output += "                if bytes.isEmpty { return Unit(inline: \(emptyWord)) }\n"
+        output += "                let wordCount = try \(view)._detectProtoCacheWords(bytes, depth: depth)\n"
         output += "                return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)\n"
         output += "            }\n"
         output += "        }\n"
@@ -62,17 +63,17 @@ extension Generator {
         for plan in fieldPlans {
             let initialValue = defaultMutableValue(plan.field, type: plan.type, index: index)
             if plan.requiresBox {
-                output += "    private var _\(plan.property) = _ProtoCacheBox<\(plan.type)>(\(initialValue))\n"
+                output += "    private var _\(plan.property): _ProtoCacheBox<\(plan.type)>?\n"
             } else {
                 output += "    private var _\(plan.property): \(plan.type) = \(initialValue)\n"
             }
         }
         output += renderInitializers()
         for plan in fieldPlans { output += try renderProperty(plan, view: view, index: index) }
-        output += "    public var _isProtoCacheEmpty: Bool {\n"
+        output += "    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n"
         for plan in fieldPlans { output += renderEmptyCheck(plan, view: view, index: index) }
         output += "        return true\n    }\n"
-        output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {\n"
+        output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n"
         output += renderUntouchedSource(view: view, condition: accessedIsEmpty)
         output += "        return try _source.withView(\(view).self) { source in\n"
         output += "            let checkpoint = buffer.checkpoint\n"
@@ -99,15 +100,17 @@ extension Generator {
         output += renderInitializers(emptyValue: emptyValue)
         let decoded = try ownedAlias(field, view: view, index: index)
         output += "    public var value: \(type) {\n        mutating _read {\n            if _value == nil { _value = \(decoded) }\n            yield _value!\n        }\n        set { _value = newValue }\n        _modify {\n            if _value == nil { _value = \(decoded) }\n            yield &_value!\n        }\n    }\n"
-        output += "    public var _isProtoCacheEmpty: Bool {\n        if let value = _value { return value.isEmpty }\n        return _source.withView(\(view).self) { $0.isEmpty }\n    }\n"
-        output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {\n"
-        output += renderUntouchedSource(view: view, condition: "_value == nil")
+        output += "    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n        if let value = _value { return value.isEmpty }\n        return _source.withView(\(view).self) { $0.isEmpty }\n    }\n"
+        output += "    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {\n        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }\n"
+        let emptyWord = mapEntry(field, index: index) != nil ? "5 << 28" : field.type == .bool ? "0" : "1"
+        output += renderUntouchedSource(view: view, condition: "_value == nil", emptyWord: emptyWord)
         output += try renderContainer(
             field,
             value: "_value!",
             target: "return",
             index: index,
-            indent: "        "
+            indent: "        ",
+            elementDepth: "depth + 1"
         )
         output += "    }\n"
         output += "}\n\n"
@@ -129,9 +132,9 @@ extension Generator {
         )
         var output = "    public var \(property): \(plan.type) {\n"
         if plan.requiresBox {
-            output += "        mutating _read {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            yield _\(property).value\n        }\n"
+            output += "        mutating _read {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            yield _\(property)!.value\n        }\n"
             output += "        set { _\(property) = _ProtoCacheBox(newValue); \(markAccessed) }\n"
-            output += "        _modify {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            _protoCacheEnsureUnique(&_\(property))\n            yield &_\(property).value\n        }\n"
+            output += "        _modify {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            _protoCacheEnsureUnique(&_\(property)!)\n            yield &_\(property)!.value\n        }\n"
         } else {
             output += "        mutating _read {\n            if \(unaccessed) { _\(property) = \(decoded); \(markAccessed) }\n            yield _\(property)\n        }\n"
             output += "        set { _\(property) = newValue; \(markAccessed) }\n"
@@ -147,8 +150,8 @@ extension Generator {
         let accessed = "_accessed[\(id >> 6)] & (UInt64(1) << \(id & 63)) != 0"
         let nonempty: String
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            let value = plan.requiresBox ? "_\(property).value" : "_\(property)"
-            return "        if \(accessed) { if !\(value)._isProtoCacheEmpty { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
+            let value = plan.requiresBox ? "_\(property)!.value" : "_\(property)"
+            return "        if \(accessed) { if try !\(value)._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
         }
         if field.label == .repeated || mapEntry(field, index: index) != nil || field.type == .string || field.type == .bytes {
             nonempty = "!value.isEmpty"
@@ -168,8 +171,8 @@ extension Generator {
         let id = field.number - 1
         var output = "                if _accessed[\(id >> 6)] & (UInt64(1) << \(id & 63)) != 0 {\n"
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            let value = plan.requiresBox ? "_\(property).value" : "_\(property)"
-            output += "                    let value = \(value)\n                    if !value._isProtoCacheEmpty { fields[\(id)] = try value._encodeProtoCache(in: buffer) }\n"
+            let value = plan.requiresBox ? "_\(property)!.value" : "_\(property)"
+            output += "                    let value = \(value)\n                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[\(id)] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }\n"
         } else if field.label == .repeated || mapEntry(field, index: index) != nil {
             output += "                    let value = _\(property)\n                    if !value.isEmpty {\n"
             output += try renderContainer(
@@ -195,7 +198,7 @@ extension Generator {
         }
         let copyExpression: String
         if isReference(field, index: index) {
-            let detector = try detectValue(field, source: "child", depth: "0", index: index)
+            let detector = try detectValue(field, source: "child", depth: "depth + 1", index: index)
             copyExpression = "try _ProtoCacheEncoding.copy(original, in: buffer) { child in \(detector) }"
         } else {
             copyExpression = "_ProtoCacheEncoding._copyInline(original)"
@@ -214,7 +217,8 @@ extension Generator {
         value: String,
         target: String,
         index: SchemaIndex,
-        indent: String
+        indent: String,
+        elementDepth: String = "depth + 2"
     ) throws -> String {
         if let entry = mapEntry(field, index: index) {
             let nestedIndent = indent + "    "
@@ -224,7 +228,7 @@ extension Generator {
             output += "\(nestedIndent)\(nestedTarget) try _ProtoCacheEncoding.map(entryCount: value.count, in: buffer, since: checkpoint) { encodedEntries in\n"
             output += "\(nestedIndent)    var entryIndex = 0\n"
             output += "\(nestedIndent)    for entry in value {\n"
-            output += "\(nestedIndent)        encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: \(try encodeValue(entry.field[0], value: "entry.key")), valueUnit: \(try encodeValue(entry.field[1], value: "entry.value")))\n"
+            output += "\(nestedIndent)        encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: \(try encodeValue(entry.field[0], value: "entry.key", depth: elementDepth)), valueUnit: \(try encodeValue(entry.field[1], value: "entry.value", depth: elementDepth)))\n"
             output += "\(nestedIndent)        entryIndex += 1\n"
             output += "\(nestedIndent)    }\n"
             output += "\(nestedIndent)}\n"
@@ -236,16 +240,16 @@ extension Generator {
         }
         var output = "\(indent)let checkpoint = buffer.checkpoint\n"
         output += "\(indent)\(target) try _ProtoCacheEncoding.array(elementCount: \(value).count, in: buffer, since: checkpoint) { elements in\n"
-        output += "\(indent)    for index in \(value).indices { elements[index] = \(try encodeValue(field, value: "\(value)[index]")) }\n"
+        output += "\(indent)    for index in \(value).indices { elements[index] = \(try encodeValue(field, value: "\(value)[index]", depth: elementDepth)) }\n"
         output += "\(indent)}\n"
         return output
     }
 
-    static func encodeValue(_ field: FieldProto, value: String) throws -> String {
+    static func encodeValue(_ field: FieldProto, value: String, depth: String = "depth + 1") throws -> String {
         switch field.type {
         case .string: "try _ProtoCacheEncoding.string(\(value), in: buffer)"
         case .bytes: "try _ProtoCacheEncoding.byteArray(\(value), in: buffer)"
-        case .message: "try \(value)._encodeProtoCache(in: buffer)"
+        case .message: "try \(value)._encodeProtoCache(in: buffer, depth: \(depth))"
         case .enum: "_ProtoCacheEncoding.scalar(\(value).rawValue)"
         default: "_ProtoCacheEncoding.scalar(\(value))"
         }

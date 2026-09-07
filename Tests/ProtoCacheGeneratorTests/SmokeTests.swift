@@ -68,6 +68,7 @@ private func request(parameter: String = "") -> Generator.Request {
     #expect(first.file[0].content.contains("public struct Sample_RootView"))
     #expect(first.file[0].content.contains("public struct Sample_ModeValue"))
     #expect(first.file[0].content.contains("isAlias: true"))
+    #expect(first.file[0].content.contains("runtimeABI: 7"))
     #expect(first.file[0].content.contains("_detectProtoCacheWords"))
     #expect(first.file[0].content.contains("import ProtoCacheCore"))
     #expect(!first.file[0].content.contains("SwiftProtobuf"))
@@ -135,7 +136,8 @@ private func request(parameter: String = "") -> Generator.Request {
     guard response.file.count == 2 else { return }
     let extra = response.file[1].content
     #expect(!extra.contains("_ProtoCacheBox<Sample_ChildMutable>"))
-    #expect(extra.contains("_ProtoCacheBox<Sample_CyclicBMutable>"))
+    #expect(extra.contains("_ProtoCacheBox<Sample_CyclicBMutable>?"))
+    #expect(!extra.contains("_ProtoCacheBox<Sample_CyclicBMutable>(.init())"))
     #expect(extra.contains("_ProtoCacheBox<Sample_CyclicAMutable>"))
 }
 

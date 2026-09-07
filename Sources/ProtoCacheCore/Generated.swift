@@ -40,7 +40,7 @@ public final class _ProtoCacheLayout: Sendable {
     public let _kindsByNumber: [_ProtoCacheFieldKind?]
     public let _hasValidFieldNumbers: Bool
 
-    public init(runtimeABI: UInt32 = 6, fullName: String, fields: [_ProtoCacheFieldLayout], isAlias: Bool = false) {
+    public init(runtimeABI: UInt32 = 7, fullName: String, fields: [_ProtoCacheFieldLayout], isAlias: Bool = false) {
         self.runtimeABI = runtimeABI
         self.fullName = fullName
         self.fields = fields

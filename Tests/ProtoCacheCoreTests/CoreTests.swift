@@ -310,3 +310,54 @@ import Testing
         #expect(view.scalar(39, as: Int32.self) == 39)
     }
 }
+
+@Test func largeMapPayloadCompactionPreservesEveryByte() throws {
+    for count in [1, 16, 17, 256] {
+        let buffer = _ProtoCacheBuffer()
+        let checkpoint = buffer.checkpoint
+        var expected: [[UInt8]] = []
+        var entries: [_ProtoCacheMapEntry] = []
+        for index in 0..<count {
+            let length = [0, 1, 11, 63, 64, 65, 257, 4096][index % 8]
+            let value = (0..<length).map { UInt8(truncatingIfNeeded: $0 * 37 + index) }
+            expected.append(value)
+            let key = "key-\(index)"
+            entries.append(.init(key: Array(key.utf8),
+                                 keyUnit: try _ProtoCacheEncoding.string(key, in: buffer),
+                                 valueUnit: try _ProtoCacheEncoding.byteArray(value, in: buffer)))
+        }
+        let encoded = try _ProtoCacheEncoding.map(&entries, in: buffer, since: checkpoint)
+        let bytes = try buffer.finish(encoded)
+        bytes.withBorrowedSpan { span in
+            let map = MapView<StringView, BytesView>(span)
+            #expect(map.count == count)
+            for index in 0..<count {
+                let position = map.position(for: "key-\(index)")
+                #expect(position != nil)
+                if let position {
+                    let actual = map.value(at: position).withUnsafeBytes { Array($0) }
+                    #expect(actual == expected[index])
+                }
+            }
+        }
+    }
+}
+
+@Test func perfectHashRetriesValidLargeGraphs() throws {
+    // Seed 71 exhausted the former 16 attempts for this valid 256-key map.
+    for count in [255, 256, 257, 1024] {
+        let keys = (0..<count).map { value in
+            withUnsafeBytes(of: UInt32(value).littleEndian) { Array($0) }
+        }
+        for seed: UInt32 in [0, 71, 0x8000_0000, 0xffff_ffff] {
+            let built = try PerfectHash.build(keys, initialSeed: seed)
+            #expect(Set(built.positions).count == count)
+            built.index.withUnsafeBytes { raw in
+                let view = PerfectHashView(Span(unsafeBorrowing: raw))
+                for index in keys.indices {
+                    #expect(keys[index].withUnsafeBytes { view.locate($0) } == built.positions[index])
+                }
+            }
+        }
+    }
+}

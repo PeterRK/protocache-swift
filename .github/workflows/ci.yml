@@ -40,6 +40,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Test debug build in swift:latest
         run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift test
+      - name: Test release build
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift test -c release
       - name: Build release products
         run: docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest swift build -c release
       - name: Linux Thread Sanitizer
@@ -51,11 +53,14 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/pcsw-generated"
           protoc --plugin=protoc-gen-pcsw=.build/x86_64-unknown-linux-gnu/release/protoc-gen-pcsw \
             --pcsw_out="${RUNNER_TEMP}/pcsw-generated" --pcsw_opt=extra \
-            -ITests/Fixtures Tests/Fixtures/test.proto
-          diff -u Tests/Fixtures/Generated/test.pc.swift \
-            "${RUNNER_TEMP}/pcsw-generated/test.pc.swift"
-          diff -u Tests/Fixtures/Generated/test.pc-ex.swift \
-            "${RUNNER_TEMP}/pcsw-generated/test.pc-ex.swift"
+            -ITests/Fixtures Tests/Fixtures/*.proto
+          for schema in Tests/Fixtures/*.proto; do
+            stem=$(basename "$schema" .proto)
+            diff -u "Tests/Fixtures/Generated/$stem.pc.swift" \
+              "${RUNNER_TEMP}/pcsw-generated/$stem.pc.swift"
+            diff -u "Tests/Fixtures/Generated/$stem.pc-ex.swift" \
+              "${RUNNER_TEMP}/pcsw-generated/$stem.pc-ex.swift"
+          done
       - name: Verify protobuf-free Core compile graph
         run: |
           docker run --rm -v "$PWD:/workspace" -w /workspace swift:latest \
@@ -112,11 +117,14 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/pcsw-generated"
           protoc --plugin=protoc-gen-pcsw=.build/release/protoc-gen-pcsw \
             --pcsw_out="${RUNNER_TEMP}/pcsw-generated" --pcsw_opt=extra \
-            -ITests/Fixtures Tests/Fixtures/test.proto
-          diff -u Tests/Fixtures/Generated/test.pc.swift \
-            "${RUNNER_TEMP}/pcsw-generated/test.pc.swift"
-          diff -u Tests/Fixtures/Generated/test.pc-ex.swift \
-            "${RUNNER_TEMP}/pcsw-generated/test.pc-ex.swift"
+            -ITests/Fixtures Tests/Fixtures/*.proto
+          for schema in Tests/Fixtures/*.proto; do
+            stem=$(basename "$schema" .proto)
+            diff -u "Tests/Fixtures/Generated/$stem.pc.swift" \
+              "${RUNNER_TEMP}/pcsw-generated/$stem.pc.swift"
+            diff -u "Tests/Fixtures/Generated/$stem.pc-ex.swift" \
+              "${RUNNER_TEMP}/pcsw-generated/$stem.pc-ex.swift"
+          done
       - name: Build and run external SwiftPM consumer
         run: swift run --package-path Tests/PackageConsumer -c release Consumer
 

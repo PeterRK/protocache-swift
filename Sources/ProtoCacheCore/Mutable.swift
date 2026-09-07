@@ -42,17 +42,21 @@ public final class SerializationBuffer {
 /// Generated-code support for composing nested mutable values.
 public protocol _ProtoCacheMutableEncoding: MutableValue {
     /// Whether this value encodes as the canonical empty/default value.
-    var _isProtoCacheEmpty: Bool { get }
+    /// Generated calls carry the enclosing depth so recursive empty checks
+    /// cannot bypass the serialization recursion limit.
+    func _isProtoCacheEmpty(depth: Int) throws -> Bool
 
     /// Encodes into a generated caller's reusable reverse buffer.
-    func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit
+    /// Ordinary child messages consume one depth level; array/map fields also
+    /// consume a container level, matching generated extent detection.
+    func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int) throws -> Unit
 }
 
 extension _ProtoCacheMutableEncoding {
     @inlinable
     public func serialized() throws -> Bytes {
         let buffer = _ProtoCacheBuffer()
-        return try buffer.finish(_encodeProtoCache(in: buffer))
+        return try buffer.finish(_encodeProtoCache(in: buffer, depth: 0))
     }
 
     @inlinable
@@ -61,7 +65,7 @@ extension _ProtoCacheMutableEncoding {
         _ body: (borrowing Span) throws -> Result
     ) throws -> Result {
         buffer.storage.clear()
-        let root = try _encodeProtoCache(in: buffer.storage)
+        let root = try _encodeProtoCache(in: buffer.storage, depth: 0)
         return try buffer.storage.withBorrowedOutput(root, body)
     }
 }

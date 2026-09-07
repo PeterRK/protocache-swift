@@ -33,7 +33,7 @@ public enum ProtoCache {
         as viewType: View.Type
     ) throws -> _ProtoCacheLayout where View: ~Escapable {
         let layout = viewType._protoCacheLayout
-        guard layout.runtimeABI == 6 else {
+        guard layout.runtimeABI == 7 else {
             throw ProtoCacheError.invalidSchema("unsupported generated runtime ABI \(layout.runtimeABI)")
         }
         guard M.protoMessageName == layout.fullName else {
@@ -99,7 +99,7 @@ private struct Encoder: Visitor {
         keyFieldNumber: Int? = nil,
         units: UnsafeMutableBufferPointer<Unit>
     ) throws {
-        guard layout.runtimeABI == 6 else {
+        guard layout.runtimeABI == 7 else {
             throw ProtoCacheError.invalidSchema("unsupported generated runtime ABI \(layout.runtimeABI)")
         }
         guard layout._hasValidFieldNumbers else {

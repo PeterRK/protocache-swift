@@ -66,7 +66,7 @@ extension Generator {
             }
             output += try renderDetector(message: message, index: index)
             output += "    public static var _protoCacheLayout: _ProtoCacheLayout { \(layoutName) }\n}\n"
-            output += "private let \(layoutName) = _ProtoCacheLayout(fullName: \"\(trimDot(fullName))\", fields: [\n"
+            output += "private let \(layoutName) = _ProtoCacheLayout(runtimeABI: 7, fullName: \"\(trimDot(fullName))\", fields: [\n"
             output += "    _ProtoCacheFieldLayout(number: 1, kind: \(try metadataKind(field, index: index))),\n], isAlias: true)\n\n"
             return output
         }
@@ -89,7 +89,7 @@ extension Generator {
         for field in fields { output += try renderGetter(field, index: index) }
         output += try renderDetector(message: message, index: index)
         output += "    public static var _protoCacheLayout: _ProtoCacheLayout { \(layoutName) }\n}\n"
-        output += "private let \(layoutName) = _ProtoCacheLayout(\n    fullName: \"\(trimDot(fullName))\",\n    fields: [\n"
+        output += "private let \(layoutName) = _ProtoCacheLayout(\n    runtimeABI: 7,\n    fullName: \"\(trimDot(fullName))\",\n    fields: [\n"
         for field in fields {
             output += "        _ProtoCacheFieldLayout(number: \(field.number), kind: \(try metadataKind(field, index: index))),\n"
         }

@@ -42,16 +42,19 @@ public struct Test_SmallMutable: _ProtoCacheMutableEncoding {
             yield &_str
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] & (UInt64(1) << 0) != 0 { let value = _i32; if value != 0 { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
         if _accessed[0] & (UInt64(1) << 1) != 0 { let value = _flag; if value { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         if _accessed[0] & (UInt64(1) << 3) != 0 { let value = _str; if !value.isEmpty { return false } } else if _source.withView(Test_SmallView.self, { $0._protoCacheMessageView.hasField(3) }) { return false }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_SmallView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_SmallView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -98,14 +101,17 @@ public struct Test_Vec2D_Vec1DMutable: _ProtoCacheMutableEncoding {
             yield &_value!
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if let value = _value { return value.isEmpty }
         return _source.withView(Test_Vec2D_Vec1DView.self) { $0.isEmpty }
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _value == nil {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_Vec2D_Vec1DView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 1) }
+                let wordCount = try Test_Vec2D_Vec1DView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -132,20 +138,23 @@ public struct Test_Vec2DMutable: _ProtoCacheMutableEncoding {
             yield &_value!
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if let value = _value { return value.isEmpty }
         return _source.withView(Test_Vec2DView.self) { $0.isEmpty }
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _value == nil {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_Vec2DView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 1) }
+                let wordCount = try Test_Vec2DView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
         let checkpoint = buffer.checkpoint
         return try _ProtoCacheEncoding.array(elementCount: _value!.count, in: buffer, since: checkpoint) { elements in
-            for index in _value!.indices { elements[index] = try _value![index]._encodeProtoCache(in: buffer) }
+            for index in _value!.indices { elements[index] = try _value![index]._encodeProtoCache(in: buffer, depth: depth + 1) }
         }
     }
 }
@@ -166,14 +175,17 @@ public struct Test_ArrMap_ArrayMutable: _ProtoCacheMutableEncoding {
             yield &_value!
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if let value = _value { return value.isEmpty }
         return _source.withView(Test_ArrMap_ArrayView.self) { $0.isEmpty }
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _value == nil {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_ArrMap_ArrayView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 1) }
+                let wordCount = try Test_ArrMap_ArrayView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -200,14 +212,17 @@ public struct Test_ArrMapMutable: _ProtoCacheMutableEncoding {
             yield &_value!
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if let value = _value { return value.isEmpty }
         return _source.withView(Test_ArrMapView.self) { $0.isEmpty }
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _value == nil {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_ArrMapView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 5 << 28) }
+                let wordCount = try Test_ArrMapView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -216,7 +231,7 @@ public struct Test_ArrMapMutable: _ProtoCacheMutableEncoding {
             return try _ProtoCacheEncoding.map(entryCount: value.count, in: buffer, since: checkpoint) { encodedEntries in
                 var entryIndex = 0
                 for entry in value {
-                    encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: try _ProtoCacheEncoding.string(entry.key, in: buffer), valueUnit: try entry.value._encodeProtoCache(in: buffer))
+                    encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: try _ProtoCacheEncoding.string(entry.key, in: buffer), valueUnit: try entry.value._encodeProtoCache(in: buffer, depth: depth + 1))
                     entryIndex += 1
                 }
             }
@@ -601,7 +616,8 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
             yield &_modev
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] & (UInt64(1) << 0) != 0 { let value = _i32; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
         if _accessed[0] & (UInt64(1) << 1) != 0 { let value = _u32; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         if _accessed[0] & (UInt64(1) << 2) != 0 { let value = _i64; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(2) }) { return false }
@@ -612,7 +628,7 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
         if _accessed[0] & (UInt64(1) << 7) != 0 { let value = _data; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(7) }) { return false }
         if _accessed[0] & (UInt64(1) << 8) != 0 { let value = _f32; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(8) }) { return false }
         if _accessed[0] & (UInt64(1) << 9) != 0 { let value = _f64; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(9) }) { return false }
-        if _accessed[0] & (UInt64(1) << 10) != 0 { if !_object._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(10) }) { return false }
+        if _accessed[0] & (UInt64(1) << 10) != 0 { if try !_object._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(10) }) { return false }
         if _accessed[0] & (UInt64(1) << 11) != 0 { let value = _i32v; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(11) }) { return false }
         if _accessed[0] & (UInt64(1) << 12) != 0 { let value = _u64v; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(12) }) { return false }
         if _accessed[0] & (UInt64(1) << 13) != 0 { let value = _strv; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(13) }) { return false }
@@ -629,16 +645,18 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
         if _accessed[0] & (UInt64(1) << 24) != 0 { let value = _tS64; if value != 0 { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(24) }) { return false }
         if _accessed[0] & (UInt64(1) << 25) != 0 { let value = _index; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(25) }) { return false }
         if _accessed[0] & (UInt64(1) << 26) != 0 { let value = _objects; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(26) }) { return false }
-        if _accessed[0] & (UInt64(1) << 27) != 0 { if !_matrix._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(27) }) { return false }
+        if _accessed[0] & (UInt64(1) << 27) != 0 { if try !_matrix._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(27) }) { return false }
         if _accessed[0] & (UInt64(1) << 28) != 0 { let value = _vector; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(28) }) { return false }
-        if _accessed[0] & (UInt64(1) << 29) != 0 { if !_arrays._isProtoCacheEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(29) }) { return false }
+        if _accessed[0] & (UInt64(1) << 29) != 0 { if try !_arrays._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(29) }) { return false }
         if _accessed[0] & (UInt64(1) << 31) != 0 { let value = _modev; if !value.isEmpty { return false } } else if _source.withView(Test_MainView.self, { $0._protoCacheMessageView.hasField(31) }) { return false }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_MainView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_MainView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -659,9 +677,9 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
                 _ProtoCacheEncoding.fold(&fields[31], in: buffer)
                 if _accessed[0] & (UInt64(1) << 29) != 0 {
                     let value = _arrays
-                    if !value._isProtoCacheEmpty { fields[29] = try value._encodeProtoCache(in: buffer) }
+                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[29] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }
                 } else if let original = source._protoCacheMessageView.field(29) {
-                    fields[29] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_ArrMapView._detectProtoCacheWords(child, depth: 0) }
+                    fields[29] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_ArrMapView._detectProtoCacheWords(child, depth: depth + 1) }
                 }
                 _ProtoCacheEncoding.fold(&fields[29], in: buffer)
                 if _accessed[0] & (UInt64(1) << 28) != 0 {
@@ -669,18 +687,18 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
                     if !value.isEmpty {
                         let checkpoint = buffer.checkpoint
                         fields[28] = try _ProtoCacheEncoding.array(elementCount: value.count, in: buffer, since: checkpoint) { elements in
-                            for index in value.indices { elements[index] = try value[index]._encodeProtoCache(in: buffer) }
+                            for index in value.indices { elements[index] = try value[index]._encodeProtoCache(in: buffer, depth: depth + 2) }
                         }
                     }
                 } else if let original = source._protoCacheMessageView.field(28) {
-                    fields[28] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectArrayWords(child) { child in try Test_ArrMapView._detectProtoCacheWords(child, depth: 0 + 1) } }
+                    fields[28] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectArrayWords(child) { child in try Test_ArrMapView._detectProtoCacheWords(child, depth: depth + 1 + 1) } }
                 }
                 _ProtoCacheEncoding.fold(&fields[28], in: buffer)
                 if _accessed[0] & (UInt64(1) << 27) != 0 {
                     let value = _matrix
-                    if !value._isProtoCacheEmpty { fields[27] = try value._encodeProtoCache(in: buffer) }
+                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[27] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }
                 } else if let original = source._protoCacheMessageView.field(27) {
-                    fields[27] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_Vec2DView._detectProtoCacheWords(child, depth: 0) }
+                    fields[27] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_Vec2DView._detectProtoCacheWords(child, depth: depth + 1) }
                 }
                 _ProtoCacheEncoding.fold(&fields[27], in: buffer)
                 if _accessed[0] & (UInt64(1) << 26) != 0 {
@@ -691,14 +709,14 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
                             fields[26] = try _ProtoCacheEncoding.map(entryCount: value.count, in: buffer, since: checkpoint) { encodedEntries in
                                 var entryIndex = 0
                                 for entry in value {
-                                    encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: _ProtoCacheEncoding.scalar(entry.key), valueUnit: try entry.value._encodeProtoCache(in: buffer))
+                                    encodedEntries[entryIndex] = _ProtoCacheMapEntry(key: entry.key._protoCacheKeyBytes, keyUnit: _ProtoCacheEncoding.scalar(entry.key), valueUnit: try entry.value._encodeProtoCache(in: buffer, depth: depth + 2))
                                     entryIndex += 1
                                 }
                             }
                         }
                     }
                 } else if let original = source._protoCacheMessageView.field(26) {
-                    fields[26] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectMapWords(child, keyIsReferenced: false, detectKey: { _ in 0 }, valueIsReferenced: true, detectValue: { child in try Test_SmallView._detectProtoCacheWords(child, depth: 0 + 1) }) }
+                    fields[26] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectMapWords(child, keyIsReferenced: false, detectKey: { _ in 0 }, valueIsReferenced: true, detectValue: { child in try Test_SmallView._detectProtoCacheWords(child, depth: depth + 1 + 1) }) }
                 }
                 _ProtoCacheEncoding.fold(&fields[26], in: buffer)
                 if _accessed[0] & (UInt64(1) << 25) != 0 {
@@ -760,11 +778,11 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
                     if !value.isEmpty {
                         let checkpoint = buffer.checkpoint
                         fields[18] = try _ProtoCacheEncoding.array(elementCount: value.count, in: buffer, since: checkpoint) { elements in
-                            for index in value.indices { elements[index] = try value[index]._encodeProtoCache(in: buffer) }
+                            for index in value.indices { elements[index] = try value[index]._encodeProtoCache(in: buffer, depth: depth + 2) }
                         }
                     }
                 } else if let original = source._protoCacheMessageView.field(18) {
-                    fields[18] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectArrayWords(child) { child in try Test_SmallView._detectProtoCacheWords(child, depth: 0 + 1) } }
+                    fields[18] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try _ProtoCacheEncoding._detectArrayWords(child) { child in try Test_SmallView._detectProtoCacheWords(child, depth: depth + 1 + 1) } }
                 }
                 _ProtoCacheEncoding.fold(&fields[18], in: buffer)
                 if _accessed[0] & (UInt64(1) << 17) != 0 {
@@ -850,9 +868,9 @@ public struct Test_MainMutable: _ProtoCacheMutableEncoding {
                 _ProtoCacheEncoding.fold(&fields[11], in: buffer)
                 if _accessed[0] & (UInt64(1) << 10) != 0 {
                     let value = _object
-                    if !value._isProtoCacheEmpty { fields[10] = try value._encodeProtoCache(in: buffer) }
+                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[10] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }
                 } else if let original = source._protoCacheMessageView.field(10) {
-                    fields[10] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_SmallView._detectProtoCacheWords(child, depth: 0) }
+                    fields[10] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_SmallView._detectProtoCacheWords(child, depth: depth + 1) }
                 }
                 _ProtoCacheEncoding.fold(&fields[10], in: buffer)
                 if _accessed[0] & (UInt64(1) << 9) != 0 {
@@ -926,7 +944,7 @@ public struct Test_CyclicAMutable: _ProtoCacheMutableEncoding {
     private var _source: Bytes
     private var _accessed: InlineArray<1, UInt64> = .init(repeating: 0)
     private var _value: Int32 = 0
-    private var _cyclic = _ProtoCacheBox<Test_CyclicBMutable>(.init())
+    private var _cyclic: _ProtoCacheBox<Test_CyclicBMutable>?
     public init() { _source = .empty }
     public init(_ bytes: Bytes) { _source = bytes }
     public var value: Int32 {
@@ -943,24 +961,27 @@ public struct Test_CyclicAMutable: _ProtoCacheMutableEncoding {
     public var cyclic: Test_CyclicBMutable {
         mutating _read {
             if _accessed[0] & (UInt64(1) << 1) == 0 { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicAView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicBMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()); _accessed[0] |= UInt64(1) << 1 }
-            yield _cyclic.value
+            yield _cyclic!.value
         }
         set { _cyclic = _ProtoCacheBox(newValue); _accessed[0] |= UInt64(1) << 1 }
         _modify {
             if _accessed[0] & (UInt64(1) << 1) == 0 { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicAView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicBMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()); _accessed[0] |= UInt64(1) << 1 }
-            _protoCacheEnsureUnique(&_cyclic)
-            yield &_cyclic.value
+            _protoCacheEnsureUnique(&_cyclic!)
+            yield &_cyclic!.value
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] & (UInt64(1) << 0) != 0 { let value = _value; if value != 0 { return false } } else if _source.withView(Test_CyclicAView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
-        if _accessed[0] & (UInt64(1) << 1) != 0 { if !_cyclic.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_CyclicAView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
+        if _accessed[0] & (UInt64(1) << 1) != 0 { if try !_cyclic!.value._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(Test_CyclicAView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_CyclicAView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_CyclicAView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -968,10 +989,10 @@ public struct Test_CyclicAMutable: _ProtoCacheMutableEncoding {
             let checkpoint = buffer.checkpoint
             return try _ProtoCacheEncoding.message(fieldCount: 2, in: buffer, since: checkpoint) { fields in
                 if _accessed[0] & (UInt64(1) << 1) != 0 {
-                    let value = _cyclic.value
-                    if !value._isProtoCacheEmpty { fields[1] = try value._encodeProtoCache(in: buffer) }
+                    let value = _cyclic!.value
+                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[1] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }
                 } else if let original = source._protoCacheMessageView.field(1) {
-                    fields[1] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_CyclicBView._detectProtoCacheWords(child, depth: 0) }
+                    fields[1] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_CyclicBView._detectProtoCacheWords(child, depth: depth + 1) }
                 }
                 _ProtoCacheEncoding.fold(&fields[1], in: buffer)
                 if _accessed[0] & (UInt64(1) << 0) != 0 {
@@ -989,7 +1010,7 @@ public struct Test_CyclicBMutable: _ProtoCacheMutableEncoding {
     private var _source: Bytes
     private var _accessed: InlineArray<1, UInt64> = .init(repeating: 0)
     private var _value: Int32 = 0
-    private var _cyclic = _ProtoCacheBox<Test_CyclicAMutable>(.init())
+    private var _cyclic: _ProtoCacheBox<Test_CyclicAMutable>?
     public init() { _source = .empty }
     public init(_ bytes: Bytes) { _source = bytes }
     public var value: Int32 {
@@ -1006,24 +1027,27 @@ public struct Test_CyclicBMutable: _ProtoCacheMutableEncoding {
     public var cyclic: Test_CyclicAMutable {
         mutating _read {
             if _accessed[0] & (UInt64(1) << 1) == 0 { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicBView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicAMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()); _accessed[0] |= UInt64(1) << 1 }
-            yield _cyclic.value
+            yield _cyclic!.value
         }
         set { _cyclic = _ProtoCacheBox(newValue); _accessed[0] |= UInt64(1) << 1 }
         _modify {
             if _accessed[0] & (UInt64(1) << 1) == 0 { _cyclic = _ProtoCacheBox({ let owner = _source; let range = owner.withView(Test_CyclicBView.self) { source in let root = source._protoCacheSpan; let nested = source.cyclic; let child = nested._protoCacheSpan; return root.byteRange(of: child) }; return Test_CyclicAMutable(owner.slice(byteOffset: range.lowerBound, count: range.count)) }()); _accessed[0] |= UInt64(1) << 1 }
-            _protoCacheEnsureUnique(&_cyclic)
-            yield &_cyclic.value
+            _protoCacheEnsureUnique(&_cyclic!)
+            yield &_cyclic!.value
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] & (UInt64(1) << 0) != 0 { let value = _value; if value != 0 { return false } } else if _source.withView(Test_CyclicBView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
-        if _accessed[0] & (UInt64(1) << 1) != 0 { if !_cyclic.value._isProtoCacheEmpty { return false } } else if _source.withView(Test_CyclicBView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
+        if _accessed[0] & (UInt64(1) << 1) != 0 { if try !_cyclic!.value._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(Test_CyclicBView.self, { $0._protoCacheMessageView.hasField(1) }) { return false }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_CyclicBView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_CyclicBView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -1031,10 +1055,10 @@ public struct Test_CyclicBMutable: _ProtoCacheMutableEncoding {
             let checkpoint = buffer.checkpoint
             return try _ProtoCacheEncoding.message(fieldCount: 2, in: buffer, since: checkpoint) { fields in
                 if _accessed[0] & (UInt64(1) << 1) != 0 {
-                    let value = _cyclic.value
-                    if !value._isProtoCacheEmpty { fields[1] = try value._encodeProtoCache(in: buffer) }
+                    let value = _cyclic!.value
+                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[1] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }
                 } else if let original = source._protoCacheMessageView.field(1) {
-                    fields[1] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_CyclicAView._detectProtoCacheWords(child, depth: 0) }
+                    fields[1] = try _ProtoCacheEncoding.copy(original, in: buffer) { child in try Test_CyclicAView._detectProtoCacheWords(child, depth: depth + 1) }
                 }
                 _ProtoCacheEncoding.fold(&fields[1], in: buffer)
                 if _accessed[0] & (UInt64(1) << 0) != 0 {
@@ -1065,14 +1089,17 @@ public struct Test_Deprecated_ValidMutable: _ProtoCacheMutableEncoding {
             yield &_val
         }
     }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] & (UInt64(1) << 0) != 0 { let value = _val; if value != 0 { return false } } else if _source.withView(Test_Deprecated_ValidView.self, { $0._protoCacheMessageView.hasField(0) }) { return false }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_Deprecated_ValidView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_Deprecated_ValidView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }
@@ -1095,13 +1122,16 @@ public struct Test_DeprecatedMutable: _ProtoCacheMutableEncoding {
     private var _accessed: InlineArray<1, UInt64> = .init(repeating: 0)
     public init() { _source = .empty }
     public init(_ bytes: Bytes) { _source = bytes }
-    public var _isProtoCacheEmpty: Bool {
+    public func _isProtoCacheEmpty(depth: Int = 0) throws -> Bool {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         return true
     }
-    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer) throws -> Unit {
+    public func _encodeProtoCache(in buffer: _ProtoCacheBuffer, depth: Int = 0) throws -> Unit {
+        guard depth <= 100 else { throw ProtoCacheError.recursionLimitExceeded }
         if _accessed[0] == 0 {
             return try _source.withBorrowedSpan { bytes in
-                let wordCount = try Test_DeprecatedView._detectProtoCacheWords(bytes)
+                if bytes.isEmpty { return Unit(inline: 0) }
+                let wordCount = try Test_DeprecatedView._detectProtoCacheWords(bytes, depth: depth)
                 return try _ProtoCacheEncoding.embedded(bytes.slice(byteOffset: 0, count: wordCount * 4), in: buffer)
             }
         }

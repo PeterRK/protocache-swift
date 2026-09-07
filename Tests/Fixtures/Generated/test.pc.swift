@@ -41,6 +41,7 @@ public struct Test_SmallView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_SmallView }
 }
 private let _pcswLayout_Test_SmallView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.Small",
     fields: [
         _ProtoCacheFieldLayout(number: 1, kind: .scalar(.int32)),
@@ -66,7 +67,7 @@ public struct Test_Vec2D_Vec1DView: ~Escapable, GeneratedView {
     }
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_Vec2D_Vec1DView }
 }
-private let _pcswLayout_Test_Vec2D_Vec1DView = _ProtoCacheLayout(fullName: "test.Vec2D.Vec1D", fields: [
+private let _pcswLayout_Test_Vec2D_Vec1DView = _ProtoCacheLayout(runtimeABI: 7, fullName: "test.Vec2D.Vec1D", fields: [
     _ProtoCacheFieldLayout(number: 1, kind: .array(.scalar(.float))),
 ], isAlias: true)
 
@@ -87,7 +88,7 @@ public struct Test_Vec2DView: ~Escapable, GeneratedView {
     }
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_Vec2DView }
 }
-private let _pcswLayout_Test_Vec2DView = _ProtoCacheLayout(fullName: "test.Vec2D", fields: [
+private let _pcswLayout_Test_Vec2DView = _ProtoCacheLayout(runtimeABI: 7, fullName: "test.Vec2D", fields: [
     _ProtoCacheFieldLayout(number: 1, kind: .array(.message({ Test_Vec2D_Vec1DView._protoCacheLayout }))),
 ], isAlias: true)
 
@@ -108,7 +109,7 @@ public struct Test_ArrMap_ArrayView: ~Escapable, GeneratedView {
     }
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_ArrMap_ArrayView }
 }
-private let _pcswLayout_Test_ArrMap_ArrayView = _ProtoCacheLayout(fullName: "test.ArrMap.Array", fields: [
+private let _pcswLayout_Test_ArrMap_ArrayView = _ProtoCacheLayout(runtimeABI: 7, fullName: "test.ArrMap.Array", fields: [
     _ProtoCacheFieldLayout(number: 1, kind: .array(.scalar(.float))),
 ], isAlias: true)
 
@@ -133,7 +134,7 @@ public struct Test_ArrMapView: ~Escapable, GeneratedView {
     }
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_ArrMapView }
 }
-private let _pcswLayout_Test_ArrMapView = _ProtoCacheLayout(fullName: "test.ArrMap", fields: [
+private let _pcswLayout_Test_ArrMapView = _ProtoCacheLayout(runtimeABI: 7, fullName: "test.ArrMap", fields: [
     _ProtoCacheFieldLayout(number: 1, kind: .map(key: .string, value: .message({ Test_ArrMap_ArrayView._protoCacheLayout }))),
 ], isAlias: true)
 
@@ -303,6 +304,7 @@ public struct Test_MainView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_MainView }
 }
 private let _pcswLayout_Test_MainView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.Main",
     fields: [
         _ProtoCacheFieldLayout(number: 1, kind: .scalar(.int32)),
@@ -367,6 +369,7 @@ public struct Test_CyclicAView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_CyclicAView }
 }
 private let _pcswLayout_Test_CyclicAView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.CyclicA",
     fields: [
         _ProtoCacheFieldLayout(number: 1, kind: .scalar(.int32)),
@@ -402,6 +405,7 @@ public struct Test_CyclicBView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_CyclicBView }
 }
 private let _pcswLayout_Test_CyclicBView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.CyclicB",
     fields: [
         _ProtoCacheFieldLayout(number: 1, kind: .scalar(.int32)),
@@ -428,6 +432,7 @@ public struct Test_Deprecated_ValidView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_Deprecated_ValidView }
 }
 private let _pcswLayout_Test_Deprecated_ValidView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.Deprecated.Valid",
     fields: [
         _ProtoCacheFieldLayout(number: 1, kind: .scalar(.int32)),
@@ -448,6 +453,7 @@ public struct Test_DeprecatedView: ~Escapable, GeneratedView {
     public static var _protoCacheLayout: _ProtoCacheLayout { _pcswLayout_Test_DeprecatedView }
 }
 private let _pcswLayout_Test_DeprecatedView = _ProtoCacheLayout(
+    runtimeABI: 7,
     fullName: "test.Deprecated",
     fields: [
     ]
