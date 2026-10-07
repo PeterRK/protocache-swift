@@ -1,0 +1,1 @@
+../../Fixtures/Generated/naming.pc-ex.swift

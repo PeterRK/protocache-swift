@@ -28,7 +28,7 @@ package struct Generator {
                 throw GenError.schema("unsupported parameter '\(request.parameter)'; expected empty or 'extra'")
             }
             let requested = Set(request.fileToGenerate)
-            let index = SchemaIndex(files: request.protoFile)
+            let index = try SchemaIndex(files: request.protoFile)
             for file in request.protoFile where requested.contains(file.name) {
                 try validate(file: file, index: index)
                 var output = Response.File()

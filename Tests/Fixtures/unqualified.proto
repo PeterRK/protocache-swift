@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message External {
+  int32 id = 1;
+}
+
+message _123 {
+  int32 id = 1;
+}

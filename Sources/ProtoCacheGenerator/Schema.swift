@@ -45,19 +45,95 @@ extension Generator {
     }
 
     struct SchemaIndex {
-        var messages: [String: MessageProto] = [:]
+        private(set) var messages: [String: MessageProto] = [:]
+        private(set) var enums: [String: EnumProto] = [:]
+        private(set) var unavailableTypes: Set<String> = []
+        // Generated files import Core and use its support types without a module
+        // prefix. A schema declaration must not shadow those imported symbols.
+        private var swiftSymbols: [String: String] = [
+            "FieldView": "ProtoCacheCore.FieldView",
+            "MessageView": "ProtoCacheCore.MessageView",
+            "BytesView": "ProtoCacheCore.BytesView",
+            "StringView": "ProtoCacheCore.StringView",
+            "BoolArrayView": "ProtoCacheCore.BoolArrayView",
+            "ArrayView": "ProtoCacheCore.ArrayView",
+            "MapView": "ProtoCacheCore.MapView",
+            "PerfectHashView": "ProtoCacheCore.PerfectHashView",
+            "GeneratedView": "ProtoCacheCore.GeneratedView",
+            "MutableValue": "ProtoCacheCore.MutableValue",
+        ]
+        private var directMessageEdges: [String: [String]] = [:]
 
-        init(files: [FileProto]) {
+        init(files: [FileProto]) throws {
             for file in files {
                 let scope = file.package.isEmpty ? "" : ".\(file.package)"
-                for message in file.messageType { add(message, scope: scope) }
+                for item in file.enumType { try add(item, scope: scope, suppressed: false) }
+                for message in file.messageType { try add(message, scope: scope, suppressed: false) }
+            }
+            // Container storage breaks recursive struct layout. Only active singular
+            // message edges participate, and reachability does not require sorting.
+            for (name, message) in messages
+            where !unavailableTypes.contains(name) && !message.options.mapEntry && !Generator.isAlias(message) {
+                directMessageEdges[name] = message.field.compactMap { field in
+                    guard !field.options.deprecated, field.type == .message,
+                          field.label != .repeated,
+                          messages[field.typeName]?.options.mapEntry == false else { return nil }
+                    return field.typeName
+                }
             }
         }
 
-        mutating func add(_ message: MessageProto, scope: String) {
+        private mutating func register(_ symbol: String, fullName: String) throws {
+            if let previous = swiftSymbols[symbol], previous != fullName {
+                throw GenError.schema("\(previous) and \(fullName): Swift symbol collision '\(symbol)'")
+            }
+            swiftSymbols[symbol] = fullName
+        }
+
+        private mutating func add(_ item: EnumProto, scope: String, suppressed: Bool) throws {
+            let fullName = "\(scope).\(item.name)"
+            enums[fullName] = item
+            if suppressed || item.options.deprecated {
+                unavailableTypes.insert(fullName)
+            } else {
+                try register("\(Generator.swiftType(fullName))Value", fullName: fullName)
+                var names = Set<String>()
+                for value in item.value where !value.options.deprecated {
+                    let name = Generator.lowerCamel(value.name)
+                    guard Generator.isSwiftIdentifier(name), names.insert(name).inserted else {
+                        throw GenError.schema("\(fullName).\(value.name): invalid or duplicate Swift enum value '\(name)'")
+                    }
+                }
+            }
+        }
+
+        private mutating func add(_ message: MessageProto, scope: String, suppressed: Bool) throws {
             let fullName = "\(scope).\(message.name)"
             messages[fullName] = message
-            for nested in message.nestedType { add(nested, scope: fullName) }
+            let unavailable = suppressed || message.options.deprecated
+            if unavailable {
+                unavailableTypes.insert(fullName)
+            } else if !message.options.mapEntry {
+                try register("\(Generator.swiftType(fullName))View", fullName: fullName)
+                try register("\(Generator.swiftType(fullName))Mutable", fullName: fullName)
+            }
+            for item in message.enumType {
+                try add(item, scope: fullName, suppressed: unavailable || message.options.mapEntry)
+            }
+            for nested in message.nestedType {
+                try add(nested, scope: fullName, suppressed: unavailable || message.options.mapEntry)
+            }
+        }
+
+        func hasDirectPath(from start: String, to target: String) -> Bool {
+            var pending = [start]
+            var visited = Set<String>()
+            while let current = pending.popLast() {
+                if current == target { return true }
+                guard visited.insert(current).inserted else { continue }
+                pending.append(contentsOf: directMessageEdges[current] ?? [])
+            }
+            return false
         }
     }
 
@@ -88,6 +164,7 @@ extension Generator {
         }
         var numbers = Set<Int32>()
         var names = Set<String>()
+        var swiftNames = Set<String>()
         let declared = message.field
         for field in declared {
             guard (1...6387).contains(field.number) else {
@@ -100,7 +177,15 @@ extension Generator {
             if field.name == "_" && !alias {
                 throw GenError.schema("\(fullName)._ is reserved for alias messages")
             }
-            try validate(field: field, owner: fullName, index: index)
+            if alias || !field.options.deprecated {
+                if !alias {
+                    let name = lowerCamel(field.name)
+                    guard isSwiftIdentifier(name), swiftNames.insert(name).inserted else {
+                        throw GenError.schema("\(fullName).\(field.name): invalid or duplicate Swift field '\(name)'")
+                    }
+                }
+                try validate(field: field, owner: fullName, index: index)
+            }
         }
         if alias {
             let field = declared[0]
@@ -125,15 +210,25 @@ extension Generator {
         guard field.type != .group else {
             throw GenError.schema("\(owner).\(field.name): groups are unsupported")
         }
-        if field.type == .message,
-           let target = index.messages[field.typeName],
-           target.options.mapEntry {
+        if field.type == .message || field.type == .enum {
+            let resolved = field.type == .message
+                ? index.messages[field.typeName] != nil
+                : index.enums[field.typeName] != nil
+            guard resolved else {
+                throw GenError.schema("\(owner).\(field.name): unresolved type '\(field.typeName)'")
+            }
+            guard !index.unavailableTypes.contains(field.typeName) else {
+                throw GenError.schema("\(owner).\(field.name): referenced type '\(field.typeName)' is filtered as deprecated")
+            }
+        }
+        if let target = mapEntry(field, index: index) {
             guard target.field.count == 2 else {
                 throw GenError.schema("\(owner).\(field.name): invalid map entry")
             }
             guard isMapKey(target.field[0].type) else {
                 throw GenError.schema("\(owner).\(field.name): unsupported map key")
             }
+            try validate(field: target.field[1], owner: "\(owner).\(field.name)", index: index)
         }
     }
 
@@ -195,7 +290,13 @@ extension Generator {
     }
 
     static func swiftType(_ fullName: String) -> String {
-        trimDot(fullName).split(separator: ".").map { pascal(String($0)) }.joined(separator: "_")
+        let name = trimDot(fullName).split(separator: ".").map { pascal(String($0)) }.joined(separator: "_")
+        return name.first?.isNumber == true ? "_\(name)" : name
+    }
+
+    static func isSwiftIdentifier(_ value: String) -> Bool {
+        guard let first = value.first, first == "_" || first.isLetter else { return false }
+        return value != "_" && value.allSatisfy { $0 == "_" || $0.isLetter || $0.isNumber }
     }
 
     static func pascal(_ value: String) -> String {

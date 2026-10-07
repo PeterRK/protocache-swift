@@ -20,6 +20,11 @@
 
 ### Fixes
 
+- Generator rejects colliding Swift symbols and references to filtered or
+  unresolved message/enum types, including nested and map value references.
+  Numeric type names receive a valid Swift prefix without changing their
+  Protobuf full names. Mutable backing storage handles keyword fields and
+  avoids reserved runtime names.
 - Caller-buffer decompression now rejects trailing bytes after a zero-length
   payload, matching the owned-output API.
 - Recursive mutable fields start without an allocated box, preventing infinite
@@ -34,6 +39,8 @@
 
 ### Performance
 
+- Generator precomputes direct message edges and visits each reachable node
+  once per recursion query, avoiding exponential searches in converging schemas.
 - Large payload copying and overlapping reverse-buffer compaction use the Swift
   standard library's bulk memory move for ranges of at least 64 bytes. Small
   ranges keep the existing word loop; wire layout and ownership are unchanged.

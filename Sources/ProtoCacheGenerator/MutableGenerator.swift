@@ -7,6 +7,7 @@ extension Generator {
     struct FieldPlan {
         let field: FieldProto
         let property: String
+        let storageName: String
         let type: String
         let storage: FieldStorage
 
@@ -63,9 +64,9 @@ extension Generator {
         for plan in fieldPlans {
             let initialValue = defaultMutableValue(plan.field, type: plan.type, index: index)
             if plan.requiresBox {
-                output += "    private var _\(plan.property): _ProtoCacheBox<\(plan.type)>?\n"
+                output += "    private var \(plan.storageName): _ProtoCacheBox<\(plan.type)>?\n"
             } else {
-                output += "    private var _\(plan.property): \(plan.type) = \(initialValue)\n"
+                output += "    private var \(plan.storageName): \(plan.type) = \(initialValue)\n"
             }
         }
         output += renderInitializers()
@@ -126,6 +127,7 @@ extension Generator {
     static func renderProperty(_ plan: FieldPlan, view: String, index: SchemaIndex) throws -> String {
         let field = plan.field
         let property = plan.property
+        let storageName = plan.storageName
         let id = field.number - 1
         let unaccessed = "_accessed[\(id >> 6)] & (UInt64(1) << \(id & 63)) == 0"
         let markAccessed = "_accessed[\(id >> 6)] |= UInt64(1) << \(id & 63)"
@@ -138,25 +140,25 @@ extension Generator {
         )
         var output = "    public var \(property): \(plan.type) {\n"
         if plan.requiresBox {
-            output += "        mutating _read {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            yield _\(property)!.value\n        }\n"
-            output += "        set { _\(property) = _ProtoCacheBox(newValue); \(markAccessed) }\n"
-            output += "        _modify {\n            if \(unaccessed) { _\(property) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            _protoCacheEnsureUnique(&_\(property)!)\n            yield &_\(property)!.value\n        }\n"
+            output += "        mutating _read {\n            if \(unaccessed) { \(storageName) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            yield \(storageName)!.value\n        }\n"
+            output += "        set { \(storageName) = _ProtoCacheBox(newValue); \(markAccessed) }\n"
+            output += "        _modify {\n            if \(unaccessed) { \(storageName) = _ProtoCacheBox(\(decoded)); \(markAccessed) }\n            _protoCacheEnsureUnique(&\(storageName)!)\n            yield &\(storageName)!.value\n        }\n"
         } else {
-            output += "        mutating _read {\n            if \(unaccessed) { _\(property) = \(decoded); \(markAccessed) }\n            yield _\(property)\n        }\n"
-            output += "        set { _\(property) = newValue; \(markAccessed) }\n"
-            output += "        _modify {\n            if \(unaccessed) { _\(property) = \(decoded); \(markAccessed) }\n            yield &_\(property)\n        }\n"
+            output += "        mutating _read {\n            if \(unaccessed) { \(storageName) = \(decoded); \(markAccessed) }\n            yield \(storageName)\n        }\n"
+            output += "        set { \(storageName) = newValue; \(markAccessed) }\n"
+            output += "        _modify {\n            if \(unaccessed) { \(storageName) = \(decoded); \(markAccessed) }\n            yield &\(storageName)\n        }\n"
         }
         return output + "    }\n"
     }
 
     static func renderEmptyCheck(_ plan: FieldPlan, view: String, index: SchemaIndex) -> String {
         let field = plan.field
-        let property = plan.property
+        let storageName = plan.storageName
         let id = field.number - 1
         let accessed = "_accessed[\(id >> 6)] & (UInt64(1) << \(id & 63)) != 0"
         let nonempty: String
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            let value = plan.requiresBox ? "_\(property)!.value" : "_\(property)"
+            let value = plan.requiresBox ? "\(storageName)!.value" : "\(storageName)"
             return "        if \(accessed) { if try !\(value)._isProtoCacheEmpty(depth: depth + 1) { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
         }
         if field.label == .repeated || mapEntry(field, index: index) != nil || field.type == .string || field.type == .bytes {
@@ -168,19 +170,19 @@ extension Generator {
         } else {
             nonempty = "value != 0"
         }
-        return "        if \(accessed) { let value = _\(property); if \(nonempty) { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
+        return "        if \(accessed) { let value = \(storageName); if \(nonempty) { return false } } else if _source.withView(\(view).self, { $0._protoCacheMessageView.hasField(\(id)) }) { return false }\n"
     }
 
     static func renderEncoding(_ plan: FieldPlan, view: String, index: SchemaIndex) throws -> String {
         let field = plan.field
-        let property = plan.property
+        let storageName = plan.storageName
         let id = field.number - 1
         var output = "                if _accessed[\(id >> 6)] & (UInt64(1) << \(id & 63)) != 0 {\n"
         if field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            let value = plan.requiresBox ? "_\(property)!.value" : "_\(property)"
+            let value = plan.requiresBox ? "\(storageName)!.value" : "\(storageName)"
             output += "                    let value = \(value)\n                    if try !value._isProtoCacheEmpty(depth: depth + 1) { fields[\(id)] = try value._encodeProtoCache(in: buffer, depth: depth + 1) }\n"
         } else if field.label == .repeated || mapEntry(field, index: index) != nil {
-            output += "                    let value = _\(property)\n                    if !value.isEmpty {\n"
+            output += "                    let value = \(storageName)\n                    if !value.isEmpty {\n"
             output += try renderContainer(
                 field,
                 value: "value",
@@ -200,7 +202,7 @@ extension Generator {
             } else {
                 condition = "value != 0"
             }
-            output += "                    let value = _\(property)\n                    if \(condition) { fields[\(id)] = \(try encodeValue(field, value: "value")) }\n"
+            output += "                    let value = \(storageName)\n                    if \(condition) { fields[\(id)] = \(try encodeValue(field, value: "value")) }\n"
         }
         let copyExpression: String
         if isReference(field, index: index) {
@@ -361,10 +363,14 @@ extension Generator {
         owner: String,
         index: SchemaIndex
     ) throws -> [FieldPlan] {
-        try activeFields(message).map { field in
-            FieldPlan(
+        var storageNames: Set<String> = ["_source", "_accessed"]
+        return try activeFields(message).map { field in
+            var storageName = "_\(lowerCamel(field.name))"
+            while !storageNames.insert(storageName).inserted { storageName += "_" }
+            return FieldPlan(
                 field: field,
                 property: identifier(lowerCamel(field.name)),
+                storageName: identifier(storageName),
                 type: try mutableType(field, index: index),
                 storage: isIndirect(owner: owner, field: field, index: index)
                     ? .indirectMessage
@@ -377,27 +383,6 @@ extension Generator {
         guard field.type == .message,
               field.label != .repeated,
               mapEntry(field, index: index) == nil else { return false }
-        return hasDirectPath(from: field.typeName, to: owner, index: index, visited: [])
-    }
-
-    static func hasDirectPath(
-        from current: String,
-        to target: String,
-        index: SchemaIndex,
-        visited: Set<String>
-    ) -> Bool {
-        if current == target { return true }
-        guard !visited.contains(current),
-              let message = index.messages[current],
-              !isAlias(message) else { return false }
-        var visited = visited
-        visited.insert(current)
-        for field in activeFields(message)
-        where field.type == .message && field.label != .repeated && mapEntry(field, index: index) == nil {
-            if hasDirectPath(from: field.typeName, to: target, index: index, visited: visited) {
-                return true
-            }
-        }
-        return false
+        return index.hasDirectPath(from: field.typeName, to: owner)
     }
 }

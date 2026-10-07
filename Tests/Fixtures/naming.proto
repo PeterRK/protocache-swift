@@ -1,0 +1,25 @@
+syntax = "proto3";
+package names.deep;
+option swift_prefix = "Custom_";
+
+import "unqualified.proto";
+
+message Root {
+  message Child {
+    int32 id = 1;
+    Child class = 2;
+  }
+
+  enum Mode {
+    MODE_ZERO = 0;
+    MODE_ONE = 1;
+  }
+
+  int32 class = 1;
+  int32 source = 2;
+  int32 accessed = 3;
+  Child repeat = 4;
+  External external = 5;
+  Mode mode = 6;
+  repeated string switch = 7;
+}
